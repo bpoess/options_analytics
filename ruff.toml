@@ -1,0 +1,18 @@
+# Ruff configuration
+# https://docs.astral.sh/ruff/configuration/
+
+line-length = 88  # Match black
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+]
+ignore = []
+
+[lint.isort]
+known-first-party = []

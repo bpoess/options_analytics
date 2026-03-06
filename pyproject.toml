@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "options-analytics"
+version = "0.1.0"
+description = "Tools for options data gathering and analytics"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "pydantic>=2.12.5",
+    "pygsheets>=2.0.6",
+    "pytz>=2026.1.post1",
+    "tqdm>=4.67.3",
+]
+
+[project.scripts]
+fetch_data = "options_analytics.fetch_data:main"
+get_transactions = "options_analytics.get_transactions:main"
+update_spreadsheet = "options_analytics.update_spreadsheet:main"
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.19.0",
+    "ruff>=0.15.4",
+]

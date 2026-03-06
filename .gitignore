@@ -1,0 +1,12 @@
+config.ini
+access_token.json
+credentials.json
+sheets.googleapis.com-python.json
+brokerage.db
+*.swp
+*.pyc
+.DS_Store
+*.egg-info/
+scratch/
+build/
+dist/

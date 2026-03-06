@@ -1,0 +1,196 @@
+// JSON Dump Examples
+{'Accounts': {'Account': [{'accountDesc': 'Roth IRA',
+                           'accountId': '377818019',
+                           'accountIdKey': 'CoJBNhoYz43PGub0irvryw',
+                           'accountMode': 'CASH',
+                           'accountName': '',
+                           'accountStatus': 'ACTIVE',
+                           'accountType': 'ROTHIRA',
+                           'closedDate': 0,
+                           'fcManagedMssbClosedAccount': False,
+                           'institutionType': 'BROKERAGE',
+                           'shareWorksAccount': False},
+                          {'accountDesc': 'Individual Brokerage',
+                           'accountId': '676342480',
+                           'accountIdKey': 'kSaxATPWdi6kMNnklTYOEg',
+                           'accountMode': 'CASH',
+                           'accountName': '',
+                           'accountStatus': 'ACTIVE',
+                           'accountType': 'INDIVIDUAL',
+                           'closedDate': 0,
+                           'fcManagedMssbClosedAccount': False,
+                           'institutionType': 'BROKERAGE',
+                           'shareWorksAccount': False}]}}
+
+// Transaction Examples
+{'transactionId': 26012502922275, 'accountId': '676342480', 'transactionDate': 1768237779000, 'amount': 2878.38, 'description': 'AIR LIQUIDE ADR UNSOLICITED TRADE', 'Category': {'categoryId': '0', 'parentId': '0', 'categoryName': '', 'parentName': ''}, 'Brokerage': {'transactionType': 'Sold', 'quantity': -78.0, 'price': 36.966, 'settlementCurrency': 'USD', 'paymentCurrency': 'USD', 'fee': 4.95, 'memo': '', 'orderNo': '1088', 'Product': {'symbol': 'AIQUY'}}}
+{'transactionId': 26015502760236, 'accountId': '676342480', 'transactionDate': 1768494526000, 'amount': -63.51, 'description': 'CALL PG     01/16/26   145.000', 'Category': {'categoryId': '0', 'parentId': '0', 'categoryName': '', 'parentName': ''}, 'Brokerage': {'transactionType': 'Bought To Cover', 'quantity': 1.0, 'price': 0.63, 'settlementCurrency': 'USD', 'paymentCurrency': 'USD', 'fee': 0.51, 'memo': '', 'orderNo': '1113', 'Product': {'symbol': 'PG', 'callPut': 'CALL', 'expiryYear': 26, 'expiryMonth': 1, 'expiryDay': 16, 'strikePrice': 145.0}}}
+{'transactionId': 26015502760234, 'accountId': '676342480', 'transactionDate': 1768494100000, 'amount': -4.01, 'description': 'CALL NVO    01/16/26    60.000', 'Category': {'categoryId': '0', 'parentId': '0', 'categoryName': '', 'parentName': ''}, 'Brokerage': {'transactionType': 'Bought To Cover', 'quantity': 1.0, 'price': 0.04, 'settlementCurrency': 'USD', 'paymentCurrency': 'USD', 'fee': 0.01, 'memo': '', 'orderNo': '1109', 'Product': {'symbol': 'NVO', 'callPut': 'CALL', 'expiryYear': 26, 'expiryMonth': 1, 'expiryDay': 16, 'strikePrice': 60.0}}}
+{'transactionId': 25365507732451, 'accountId': '676342480', 'transactionDate': 1767168000000, 'amount': 2.12, 'description': 'MORGAN STANLEY BANK N.A. (Period 12/01-12/31)', 'Category': {'categoryId': '0', 'parentId': '0', 'categoryName': '', 'parentName': ''}, 'Brokerage': {'transactionType': 'Interest Income', 'quantity': -2.0, 'price': 0.0, 'settlementCurrency': 'USD', 'paymentCurrency': 'USD', 'fee': 0.0, 'memo': '', 'orderNo': '0', 'Product': {'symbol': 'MSBNK'}}}
+{'transactionId': 25356502939352, 'accountId': '676342480', 'transactionDate': 1766390400000, 'amount': 0.0, 'description': 'PUT  ONDS   12/19/25     7.000', 'Category': {'categoryId': '0', 'parentId': '0', 'categoryName': '', 'parentName': ''}, 'Brokerage': {'transactionType': 'Option Expired', 'quantity': 1.0, 'price': 0.0, 'settlementCurrency': 'USD', 'paymentCurrency': 'USD', 'fee': 0.0, 'memo': '', 'orderNo': '0', 'Product': {'symbol': 'ONDS', 'callPut': 'PUT', 'expiryYear': 25, 'expiryMonth': 12, 'expiryDay': 19, 'strikePrice': 7.0}}}
+
+
+// E*Trade ListOrders API
+// Endpoint: GET /v1/accounts/{accountIdKey}/orders
+// Query params: status, fromDate, toDate, count, marker, symbol, securityType, transactionType
+
+Order (top-level)
++-------------------+---------------------+------------------------------------------------------------------+
+| Field             | Type                | Description                                                      |
++-------------------+---------------------+------------------------------------------------------------------+
+| orderId           | int64               | ID assigned to the order                                         |
+| details           | string              | Order details URL                                                |
+| orderType         | string              | EQ, OPTN, SPREADS, BUY_WRITES, BUTTERFLY, IRON_BUTTERFLY,        |
+|                   |                     | CONDOR, IRON_CONDOR, MF, MMF                                     |
+| totalOrderValue   | number              | Total order value                                                |
+| totalCommission   | number              | Total commission                                                 |
+| OrderDetail       | array[OrderDetail]  | Order confirmation details                                       |
+| Events            | Events              | Events in the placed order                                       |
++-------------------+---------------------+------------------------------------------------------------------+
+
+OrderDetail
++----------------------+---------------------+------------------------------------------------------------------+
+| Field                | Type                | Description                                                      |
++----------------------+---------------------+------------------------------------------------------------------+
+| orderNumber          | int                 | Numeric ID in E*TRADE system                                     |
+| accountId            | string              | Numeric account ID                                               |
+| previewTime          | int64               | Order preview time (UTC)                                         |
+| placedTime           | int64               | Time order was placed (UTC)                                      |
+| executedTime         | int64               | Time order was executed (UTC)                                    |
+| orderValue           | number              | Total cost/proceeds including commission                         |
+| status               | string              | OPEN, EXECUTED, CANCELLED, INDIVIDUAL_FILLS, CANCEL_REQUESTED,   |
+|                      |                     | EXPIRED, REJECTED                                                |
+| orderType            | string              | Type of order                                                    |
+| orderTerm            | string              | GOOD_UNTIL_CANCEL, GOOD_FOR_DAY, GOOD_TILL_DATE,                 |
+|                      |                     | IMMEDIATE_OR_CANCEL, FILL_OR_KILL                                |
+| priceType            | string              | MARKET, LIMIT, STOP, STOP_LIMIT, TRAILING_STOP_*, NET_DEBIT,     |
+|                      |                     | NET_CREDIT, etc.                                                 |
+| priceValue           | string              | Price value                                                      |
+| limitPrice           | number              | Highest buy or lowest sell price                                 |
+| stopPrice            | number              | Boundary price for stop order                                    |
+| stopLimitPrice       | number              | Boundary price for stop-limit                                    |
+| offsetType           | string              | TRAILING_STOP_CNST, TRAILING_STOP_PRCT                           |
+| offsetValue          | number              | Stop value for trailing stops                                    |
+| marketSession        | string              | REGULAR, EXTENDED                                                |
+| routingDestination   | string              | AUTO, AMEX, BOX, CBOE, ISE, NOM, NYSE, PHX                       |
+| bracketedLimitPrice  | number              | Bracketed limit price                                            |
+| initialStopPrice     | number              | Initial stop price                                               |
+| trailPrice           | number              | Current trailing value                                           |
+| triggerPrice         | number              | Advanced order trigger price                                     |
+| conditionPrice       | number              | Conditional order comparison price                               |
+| conditionSymbol      | string              | Conditional comparison symbol                                    |
+| conditionType        | string              | CONTINGENT_GTE, CONTINGENT_LTE                                   |
+| conditionFollowPrice | string              | ASK, BID, LAST                                                   |
+| conditionSecurityType| string              | Condition security type                                          |
+| replacedByOrderId    | int                 | Replacement order ID                                             |
+| replacesOrderId      | int                 | Order being replaced ID                                          |
+| allOrNone            | boolean             | Execute all or none flag                                         |
+| previewId            | int64               | Numeric preview ID                                               |
+| instrument           | array[Instrument]   | Instrument objects                                               |
+| messages             | Messages            | Related messages                                                 |
+| investmentAmount     | double              | Investment amount                                                |
+| positionQuantity     | string              | ENTIRE_POSITION, CASH, MARGIN                                    |
+| aipFlag              | boolean             | Automated investment planning flag                               |
+| egQual               | string              | Execution guarantee qualification                                |
+| reInvestOption       | string              | REINVEST, DEPOSIT, CURRENT_HOLDING                               |
+| estimatedCommission  | number              | Commission cost                                                  |
+| estimatedFees        | number              | Estimated fees                                                   |
+| estimatedTotalAmount | number              | Cost/proceeds with commission                                    |
+| netPrice             | number              | Net price                                                        |
+| netBid               | number              | Net bid                                                          |
+| netAsk               | number              | Net ask                                                          |
+| gcd                  | int32               | GCD value                                                        |
+| ratio                | string              | Ratio value                                                      |
+| mfpriceType          | string              | Mutual fund price type                                           |
++----------------------+---------------------+------------------------------------------------------------------+
+
+Instrument
++----------------------+---------------------+------------------------------------------------------------------+
+| Field                | Type                | Description                                                      |
++----------------------+---------------------+------------------------------------------------------------------+
+| product              | Product             | Product details                                                  |
+| symbolDescription    | string              | Security text description                                        |
+| orderAction          | string              | BUY, SELL, BUY_TO_COVER, SELL_SHORT, BUY_OPEN, BUY_CLOSE,        |
+|                      |                     | SELL_OPEN, SELL_CLOSE, EXCHANGE                                  |
+| quantityType         | string              | QUANTITY, DOLLAR, ALL_I_OWN                                      |
+| quantity             | number              | Shares to buy/sell                                               |
+| cancelQuantity       | number              | Shares to cancel ordering                                        |
+| orderedQuantity      | number              | Shares ordered                                                   |
+| filledQuantity       | number              | Shares filled                                                    |
+| averageExecutionPrice| number              | Average execution price                                          |
+| estimatedCommission  | number              | Action cost                                                      |
+| estimatedFees        | number              | Cost/proceeds including commission                               |
+| bid                  | double              | Bid price                                                        |
+| ask                  | double              | Ask price                                                        |
+| lastprice            | double              | Last price                                                       |
+| currency             | string              | USD, EUR, GBP, HKD, JPY, CAD                                     |
+| lots                 | Lots                | Position lot object                                              |
+| mfQuantity           | MFQuantity          | Mutual fund quantity object                                      |
+| osiKey               | string              | OSI key for option                                               |
+| mfTransaction        | string              | BUY, SELL                                                        |
+| reserveOrder         | boolean             | Reserve order flag                                               |
+| reserveQuantity      | number              | Shares publicly displayed                                        |
++----------------------+---------------------+------------------------------------------------------------------+
+
+Product
++----------------------+---------------------+------------------------------------------------------------------+
+| Field                | Type                | Description                                                      |
++----------------------+---------------------+------------------------------------------------------------------+
+| symbol               | string              | Market symbol                                                    |
+| securityType         | string              | EQ, OPTN, INDX, MF, MMF                                          |
+| callPut              | string              | CALL, PUT                                                        |
+| expiryYear           | int32               | Option expiration year                                           |
+| expiryMonth          | int32               | Option expiration month (1-12)                                   |
+| expiryDay            | int32               | Option expiration day (1-31)                                     |
+| strikePrice          | number              | Option strike price                                              |
+| expiryType           | string              | Option expiration type                                           |
+| productId            | ProductId           | ProductId object                                                 |
++----------------------+---------------------+------------------------------------------------------------------+
+
+ProductId
++----------------------+---------------------+------------------------------------------------------------------+
+| Field                | Type                | Description                                                      |
++----------------------+---------------------+------------------------------------------------------------------+
+| symbol               | string              | Market symbol                                                    |
+| typeCode             | string              | EQUITY, OPTION, MUTUAL_FUND, INDEX, ETF, etc.                    |
++----------------------+---------------------+------------------------------------------------------------------+
+
+Events / Event
++----------------------+---------------------+------------------------------------------------------------------+
+| Field                | Type                | Description                                                      |
++----------------------+---------------------+------------------------------------------------------------------+
+| event                | array[Event]        | Order event array                                                |
+| name                 | string              | ORDER_PLACED, ORDER_EXECUTED, ORDER_CANCELLED, SENT_TO_MARKET,   |
+|                      |                     | etc.                                                             |
+| dateTime             | int64               | Event date/time                                                  |
+| orderNumber          | int                 | Numeric order ID                                                 |
+| instrument           | array[Instrument]   | Instrument objects (execution details per leg)                   |
++----------------------+---------------------+------------------------------------------------------------------+
+
+Lots / Lot
++----------------------+---------------------+------------------------------------------------------------------+
+| Field                | Type                | Description                                                      |
++----------------------+---------------------+------------------------------------------------------------------+
+| lot                  | array[Lot]          | Position lot details array                                       |
+| id                   | int64               | Lot ID selected to sell                                          |
+| size                 | number              | Shares to sell for lot                                           |
++----------------------+---------------------+------------------------------------------------------------------+
+
+MFQuantity
++----------------------+---------------------+------------------------------------------------------------------+
+| Field                | Type                | Description                                                      |
++----------------------+---------------------+------------------------------------------------------------------+
+| cash                 | double              | Cash quantity value                                              |
+| margin               | double              | Margin quantity value                                            |
+| cusip                | string              | Mutual fund CUSIP                                                |
++----------------------+---------------------+------------------------------------------------------------------+
+
+Messages / Message
++----------------------+---------------------+------------------------------------------------------------------+
+| Field                | Type                | Description                                                      |
++----------------------+---------------------+------------------------------------------------------------------+
+| message              | array[Message]      | Message object array                                             |
+| description          | string              | Result message text                                              |
+| code                 | int32               | Numeric result code                                              |
+| type                 | string              | WARNING, INFO, INFO_HOLD, ERROR                                  |
++----------------------+---------------------+------------------------------------------------------------------+
