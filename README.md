@@ -94,3 +94,13 @@ uv sync
 ### Running scripts
 - `uv run <script> ...` (no activation needed), or
 - `.venv/bin/<script> ...`
+
+### Creating a package for distribution
+
+This repo uses Pyinstaller (https://pyinstaller.org/en/stable/) to create a package for distributing to users that don't want to create their own development environment.
+
+```bash
+pyinstaller options_analytics.spec
+```
+
+This will create a new package in `dist/`. The package will be completely self contained and will work on any compatible computer (i.e similar chip and OS version). 
