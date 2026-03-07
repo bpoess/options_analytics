@@ -10,7 +10,7 @@ from tqdm import tqdm
 from options_analytics.models import Transaction, TransactionCategory
 
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.DEBUG)
 
 
 class WorksheetRow:

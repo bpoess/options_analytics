@@ -7,7 +7,7 @@ from options_analytics.clients.etrade import models as etrade_models
 from options_analytics.clients.etrade.cache_client import ETradeCachedClient
 
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.DEBUG)
 
 
 class TransactionCategory(StrEnum):

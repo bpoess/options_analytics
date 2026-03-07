@@ -176,6 +176,7 @@ class ETradeProcessor:
         for account in self._accounts:
             for transaction in account.transactions:
                 if self._worksheet.has_transaction_been_processed(transaction.id):
+                    logger.debug(f"{transaction} already processed")
                     continue
                 account.classify_transaction(transaction)
                 transactions.append(transaction)
@@ -194,6 +195,7 @@ class ETradeProcessor:
         ) as progress_bar:
             for transaction in transactions:
                 category = transaction.category
+                logger.debug(f"C {category} T {transaction}")
                 if category == TransactionCategory.OPEN:
                     self._worksheet.add(transaction)
                 elif (
