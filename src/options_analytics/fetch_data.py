@@ -88,7 +88,7 @@ def fetch_data(
     fetched_accounts = client.fetch_accounts()
     accounts = list(
         filter(
-            lambda x: user.etrade.lookup_account_by_id(x["accountId"]) is not None,
+            lambda x: user.etrade.find_account_by_id(x["accountId"]) is not None,
             fetched_accounts,
         )
     )
