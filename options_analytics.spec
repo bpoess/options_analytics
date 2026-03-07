@@ -100,10 +100,44 @@ exe_fetch_data = EXE(
     entitlements_file=None,
 )
 
+analysis_setup_config = Analysis(
+    ['src/options_analytics/setup_config.py'],
+    pathex=[],
+    binaries=[],
+    datas=[],
+    hiddenimports=[],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    noarchive=False,
+    optimize=0,
+)
+pyz_setup_config = PYZ(analysis_setup_config.pure)
+
+exe_setup_config = EXE(
+    pyz_setup_config,
+    analysis_setup_config.scripts,
+    [],
+    exclude_binaries=True,
+    name='options_analytics_setup_config',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    console=True,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+
 coll = COLLECT(
     exe_get_transactions, analysis_get_transactions.binaries, analysis_get_transactions.datas,
     exe_update_spreadsheet, analysis_update_spreadsheet.binaries, analysis_update_spreadsheet.datas,
     exe_fetch_data, analysis_fetch_data.binaries, analysis_fetch_data.datas,
+    exe_setup_config, analysis_setup_config.binaries, analysis_setup_config.datas,
     strip=False,
     upx=True,
     upx_exclude=[],

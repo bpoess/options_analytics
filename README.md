@@ -1,10 +1,11 @@
 # Options Analytics Scripts
 
-This package provides three user-facing scripts:
+This package provides these user-facing scripts:
 
 - `fetch_data`: Pull E*Trade API data into a local JSON cache file without transformation.
 - `get_transactions`: Summarize transactions for use in options tracking.
 - `update_spreadsheet`: List and categorize transactions and update your Google Sheet tracker.
+- `options_analytics_setup_config` (`setup_config`): Interactive setup for creating `config.toml`.
 
 ## Prerequisites
 
@@ -25,30 +26,31 @@ There are different ways to accomplish this. The following will give the script 
 1. Download the OAuth client file and save it as `credentials.json`. The scripts expect `credentials.json` in the current working directory when invoked.
 
 
-### Create `config.ini`
+### Create `config.toml`
 
-The scripts read `config.ini` from the current working directory.
+The analytics scripts read `config.toml` from the current working directory.
 
-Create it from the example:
+Packaged distribution:
 
 ```bash
-cp config.ini.example config.ini
+options_analytics_setup_config
 ```
 
-Set at least:
+or for developers
 
-- `CONSUMER_KEY`
-- `CONSUMER_SECRET`
-- `ACCOUNT_LIST`
-
-Example:
-
-```ini
-[DEFAULT]
-CONSUMER_KEY = your_consumer_key
-CONSUMER_SECRET = your_consumer_secret
-ACCOUNT_LIST = [{"id":"12345678","name":"Main"},{"id":"87654321","name":"IRA"}]
+```bash
+uv run setup_config
 ```
+
+`setup_config` will attempt to convert from old style config.ini files if found in the current working directory.
+
+Manual alternative:
+
+```bash
+cp config.toml.example config.toml
+```
+
+Then edit values in `config.toml` before running the analytics scripts.
 
 ## Script Usage
 
@@ -73,14 +75,6 @@ All date flags use `MMDDYYYY`, for example:
 By default the scripts will use the etrade backend to fetch data. In order to avoid rate limits for frequent usage the scripts support operating on data from a data cache created via `fetch_data`.
 
 `--fromcache path/to/data/cache`
-
-### Filtering accounts
-
-Allows a user to only operate on one of the accounts listed in config.ini
-
-`--accounts` expects comma-separated account IDs.
-
-
 
 ## Development
 ### Repository Setup
