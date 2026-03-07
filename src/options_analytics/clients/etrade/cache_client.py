@@ -1,4 +1,3 @@
-import json
 import logging
 from datetime import datetime, time, timedelta
 from pprint import pformat
@@ -27,16 +26,15 @@ class ETradeCachedClient:
         self,
         consumer_key: str,
         consumer_secret: str,
-        cache_file: str | None = None,
+        cache_data: dict | None = None,
         sandbox: bool = False,
     ):
-        if not cache_file:
+        if not cache_data:
             self._client = ETradeClient(consumer_key, consumer_secret, sandbox)
             self._cached = False
         else:
             self._cached = True
-            with open(cache_file) as json_file:
-                self._json_data = json.load(json_file)
+            self._json_data = cache_data
 
     def fetch_accounts(self) -> list[dict]:
         if self._cached:

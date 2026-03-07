@@ -6,6 +6,7 @@ if __name__ == "__main__":
     freeze_support()
 
 import argparse
+import json
 import logging
 from datetime import datetime, timedelta
 from typing import NamedTuple
@@ -99,14 +100,6 @@ class Contract(NamedTuple):
         )
 
 
-def is_configured_account(user, id: str) -> bool:
-    for account in user.etrade.accounts:
-        if account.id == id:
-            return True
-
-    return False
-
-
 def get_accounts(client: ETradeCachedClient, user: UserConfig):
     """Returns an array of etrade Account dictionaries"""
 
@@ -114,7 +107,7 @@ def get_accounts(client: ETradeCachedClient, user: UserConfig):
 
     return list(
         filter(
-            lambda account: is_configured_account(user, account.id),
+            lambda account: user.etrade.find_account_by_id(account.id) is not None,
             map(lambda data: Account.model_validate(data), accounts),
         )
     )
@@ -374,13 +367,33 @@ def query_account(
         print(item)
 
 
+def lookup_user_data(json_data: dict, username: str) -> dict | None:
+    for user in json_data["users"]:
+        if user["username"] == username:
+            return user
+
+
 def main() -> int:
+
+    json_data = None
+    if args.fromcache:
+        with open(args.fromcache) as json_file:
+            json_data = json.load(json_file)
+
+        if json_data["version"] != 1:
+            raise Exception(f"Unsupported cache data version {json_data['version']}")
 
     for user in config.users:
         print(f"Processing transactions for {user.name}")
 
+        user_data = None
+        if json_data:
+            user_data = lookup_user_data(json_data, user.name)
+            if user_data is None:
+                raise Exception(f"Unable to find cached data for {user.name}")
+
         client = ETradeCachedClient(
-            user.etrade.key.api, user.etrade.key.secret, args.fromcache
+            user.etrade.key.api, user.etrade.key.secret, user_data
         )
 
         accounts = get_accounts(client, user)

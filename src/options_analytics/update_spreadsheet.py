@@ -8,6 +8,7 @@ if __name__ == "__main__":
     freeze_support()
 
 import argparse
+import json
 import logging
 from datetime import datetime, timedelta
 
@@ -101,18 +102,6 @@ class ETradeProcessor:
     _accounts: list[Account]
     _worksheet: Worksheet
 
-    def _is_configured_account(self, id: str) -> bool:
-        for account in self._user.etrade.accounts:
-            if account.id == id:
-                return True
-
-        return False
-
-    def _get_label_for_configured_account(self, id: str) -> str:
-        for account in self._user.etrade.accounts:
-            if account.id == id:
-                return account.label
-
     def _fetch_accounts(self) -> list[Account]:
         with tqdm(total=0, desc="Fetching accounts", leave=True) as progress_bar:
             result = []
@@ -120,20 +109,21 @@ class ETradeProcessor:
 
             for data in accounts:
                 account = Account.model_validate(data)
-                if not self._is_configured_account(account.id):
+                configured_account = self._user.etrade.find_account_by_id(account.id)
+                if not configured_account:
                     logger.debug(f"Not configured {account}, ignoring")
                     continue
 
-                account._configured_name = self._get_label_for_configured_account(
-                    account.id
-                )
+                account._configured_name = configured_account.label
                 result.append(account)
                 progress_bar.total += 1
                 progress_bar.update(1)
 
             return result
 
-    def __init__(self, args: argparse.Namespace, user: UserConfig):
+    def __init__(
+        self, args: argparse.Namespace, user: UserConfig, user_data: dict | None = None
+    ):
         self._start_date = args.startdate
         self._end_date = args.enddate
         self._user = user
@@ -146,7 +136,7 @@ class ETradeProcessor:
         self._client = ETradeCachedClient(
             self._user.etrade.key.api,
             self._user.etrade.key.secret,
-            args.fromcache,
+            user_data,
         )
 
         logger.debug("Ensuring connectivity")
@@ -214,11 +204,31 @@ class ETradeProcessor:
                 logger.debug(transaction)
 
 
+def lookup_user_data(json_data: dict, username: str) -> dict | None:
+    for user in json_data["users"]:
+        if user["username"] == username:
+            return user
+
+
 def main() -> int:
+    json_data = None
+    if args.fromcache:
+        with open(args.fromcache) as json_file:
+            json_data = json.load(json_file)
+
+        if json_data["version"] != 1:
+            raise Exception(f"Unsupported cache data version {json_data['version']}")
 
     for user in config.users:
         print(f"Processing transactions for {user.name}")
-        processor = ETradeProcessor(args, user)
+
+        user_data = None
+        if json_data:
+            user_data = lookup_user_data(json_data, user.name)
+            if user_data is None:
+                raise Exception(f"Unable to find cached data for {user.name}")
+
+        processor = ETradeProcessor(args, user, user_data)
 
         processor.fetch_data()
         processor.process_transactions()

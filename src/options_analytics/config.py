@@ -22,6 +22,11 @@ class ETradeConfig(BaseModel):
     accounts: list[Account]
     key: KeyConfig
 
+    def find_account_by_id(self, account_id: str) -> Account | None:
+        for account in self.accounts:
+            if account.id == account_id:
+                return account
+
 
 class UserConfig(BaseModel):
     name: str
