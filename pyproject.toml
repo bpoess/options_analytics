@@ -7,7 +7,7 @@ name = "options-analytics"
 version = "0.1.0"
 description = "Tools for options data gathering and analytics"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 dependencies = [
     "pydantic>=2.12.5",
     "pygsheets>=2.0.6",
