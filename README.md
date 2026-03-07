@@ -5,7 +5,10 @@ This package provides these user-facing scripts:
 - `fetch_data`: Pull E*Trade API data into a local JSON cache file without transformation.
 - `get_transactions`: Summarize transactions for use in options tracking.
 - `update_spreadsheet`: List and categorize transactions and update your Google Sheet tracker.
-- `options_analytics_setup_config` (`setup_config`): Interactive setup for creating `config.toml`.
+- `setup_config`: Interactive setup for creating `config.toml`.
+
+## Package Prefix
+All scripts are packaged as `options_analytics.<script name>`
 
 ## Prerequisites
 
@@ -33,7 +36,7 @@ The analytics scripts read `config.toml` from the current working directory.
 Packaged distribution:
 
 ```bash
-options_analytics_setup_config
+options_analytics.setup_config
 ```
 
 or for developers
