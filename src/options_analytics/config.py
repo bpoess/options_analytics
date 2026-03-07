@@ -1,23 +1,47 @@
 import configparser
 import json
+import tomllib
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import AliasChoices, BaseModel, Field
 
 _current_config: configparser.ConfigParser | None = None
 
 
 class Account(BaseModel):
     id: str
+    label: str = Field(validation_alias=AliasChoices("label", "name"))
+
+
+class KeyConfig(BaseModel):
+    api: str
+    secret: str
+
+
+class ETradeConfig(BaseModel):
+    accounts: list[Account]
+    key: KeyConfig
+
+
+class UserConfig(BaseModel):
     name: str
+    etrade: ETradeConfig
 
-    def __eq__(self, other):
-        if not isinstance(other, Account):
-            return False
-        return self.id == other.id
 
-    def __hash__(self):
-        return hash(self.id)
+class Config(BaseModel):
+    users: list[UserConfig]
+
+
+with open("/Users/bernhard/Options/config.toml", "rb") as f:
+    data = tomllib.load(f)
+    from pprint import pprint
+
+    pprint(data)
+
+    Config.model_validate(data)
+
+    print(Config)
+    exit(0)
 
 
 def initialize(path: str | Path = "config.ini"):
