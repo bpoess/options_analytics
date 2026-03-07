@@ -42,7 +42,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--loglevel",
-    default="INFO",
+    default="WARNING",
     help="Log level (DEBUG, INFO, WARNING, ERROR) for stdout logging",
 )
 parser.add_argument(
