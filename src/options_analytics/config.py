@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import tomllib
 from pathlib import Path
 
@@ -33,7 +35,7 @@ class Config(BaseModel):
     users: list[UserConfig]
 
     @staticmethod
-    def from_file(path: str, overrides: list[str] = None) -> Config:
+    def from_file(path: str, overrides: list[str] | None = None) -> Config:
         if overrides is not None:
             raise Exception("Not implemented")
 
