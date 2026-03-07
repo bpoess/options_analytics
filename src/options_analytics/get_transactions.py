@@ -10,9 +10,9 @@ import logging
 from datetime import datetime, timedelta
 from typing import NamedTuple
 
-from options_analytics import config
 from options_analytics.clients.etrade.cache_client import ETradeCachedClient
 from options_analytics.clients.etrade.models import Account, Transaction
+from options_analytics.config import Config, UserConfig
 
 current_date = datetime.now()
 seven_days_ago = current_date - timedelta(days=7)
@@ -35,12 +35,6 @@ parser.add_argument(
     "-s", "--startdate", default=formated_seven_days_ago, help="Start Date"
 )
 parser.add_argument("-e", "--enddate", default=formatted_current_date, help="End Date")
-parser.add_argument(
-    "--accounts",
-    type=csv_to_strings,
-    default=None,
-    help="Comma-separated list of accounts to query, e.g. --names 365432,23214",
-)
 parser.add_argument(
     "--fromcache",
     default=None,
@@ -75,6 +69,7 @@ def configure_logging():
         root_logger.addHandler(fh)
 
 
+config = Config.from_file("config.toml")
 configure_logging()
 
 logger = logging.getLogger(__name__)
@@ -104,38 +99,22 @@ class Contract(NamedTuple):
         )
 
 
-def configured_account_ids() -> list[str]:
-    configured_accounts = config.account_ids()
-    if args.accounts is not None:
-        for account_id in args.accounts:
-            if account_id not in configured_accounts:
-                raise ValueError(
-                    f"accounts parameter contains unconfigured ID {account_id}"
-                )
-        configured_accounts = args.accounts
+def is_configured_account(user, id: str) -> bool:
+    for account in user.etrade.accounts:
+        if account.id == id:
+            return True
 
-    return configured_accounts
+    return False
 
 
-def configured_accounts() -> list[config.Account]:
-    configured_accounts = config.accounts()
-
-    if args.accounts is not None:
-        configured_accounts = list(
-            filter(lambda account: account.id in args.accounts, configured_accounts)
-        )
-
-    return configured_accounts
-
-
-def get_accounts(client):
+def get_accounts(client: ETradeCachedClient, user: UserConfig):
     """Returns an array of etrade Account dictionaries"""
 
     accounts = client.fetch_accounts()
 
     return list(
         filter(
-            lambda account: account.id in configured_account_ids(),
+            lambda account: is_configured_account(user, account.id),
             map(lambda data: Account.model_validate(data), accounts),
         )
     )
@@ -199,6 +178,7 @@ def get_transactions(
 
 
 def format_transactions(
+    user: UserConfig,
     account: Account,
     data_dict: dict,
     contract_open_list: list[Contract],
@@ -222,7 +202,7 @@ def format_transactions(
         quantity = f"{abs(transaction.brokerage.quantity):,f}"
         fee = f"{transaction.brokerage.fee:,f}"
 
-        account_name = next(v.name for v in configured_accounts() if v.id == account.id)
+        account_name = next(v.label for v in user.etrade.accounts if v.id == account.id)
 
         action = transaction.brokerage.transaction_type
         if action == "Sold Short":
@@ -306,6 +286,7 @@ def format_transactions(
 
 
 def query_account(
+    user: UserConfig,
     client: ETradeCachedClient,
     account: Account,
 ):
@@ -319,6 +300,7 @@ def query_account(
     get_transactions(client, account, data_dict, error_list)
 
     format_transactions(
+        user,
         account,
         data_dict,
         contract_open_list,
@@ -393,16 +375,18 @@ def query_account(
 
 
 def main() -> int:
-    config.initialize()
 
-    client = ETradeCachedClient(
-        config.etrade_consumer_key(), config.etrade_consumer_secret(), args.fromcache
-    )
+    for user in config.users:
+        print(f"Processing transactions for {user.name}")
 
-    accounts = get_accounts(client)
-    for account in accounts:
-        query_account(client, account)
-        print("\n")
+        client = ETradeCachedClient(
+            user.etrade.key.api, user.etrade.key.secret, args.fromcache
+        )
+
+        accounts = get_accounts(client, user)
+        for account in accounts:
+            query_account(user, client, account)
+            print("\n")
 
     return 0
 

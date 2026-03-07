@@ -13,8 +13,8 @@ from datetime import datetime, timedelta
 
 from tqdm import tqdm
 
-from options_analytics import config
 from options_analytics.clients.etrade.cache_client import ETradeCachedClient
+from options_analytics.config import Config, UserConfig
 from options_analytics.models import Account, TransactionCategory
 from options_analytics.worksheet import Worksheet
 
@@ -84,8 +84,8 @@ def configure_logging():
         root_logger.addHandler(fh)
 
 
+config = Config.from_file("config.toml")
 configure_logging()
-config.initialize()
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -96,34 +96,22 @@ class ETradeProcessor:
     _start_date: str
     _end_date: str
     # Configured Accounts for processing [ID:Label]
-    _accounts_to_process: list[config.Account]
+    _user: UserConfig
     # Fetched ETrade Accounts
     _accounts: list[Account]
     _worksheet: Worksheet
 
-    @staticmethod
-    def _filter_configured_accounts(
-        configured_accounts: list[config.Account],
-        account_filter: list[str] | None = None,
-    ) -> list[config.Account]:
-        if account_filter is None:
-            return configured_accounts
-
-        return list(
-            filter(lambda account: account.id in account_filter, configured_accounts)
-        )
-
     def _is_configured_account(self, id: str) -> bool:
-        for account in self._accounts_to_process:
+        for account in self._user.etrade.accounts:
             if account.id == id:
                 return True
 
         return False
 
     def _get_label_for_configured_account(self, id: str) -> str:
-        for account in self._accounts_to_process:
+        for account in self._user.etrade.accounts:
             if account.id == id:
-                return account.name
+                return account.label
 
     def _fetch_accounts(self) -> list[Account]:
         with tqdm(total=0, desc="Fetching accounts", leave=True) as progress_bar:
@@ -133,6 +121,7 @@ class ETradeProcessor:
             for data in accounts:
                 account = Account.model_validate(data)
                 if not self._is_configured_account(account.id):
+                    logger.debug(f"Not configured {account}, ignoring")
                     continue
 
                 account._configured_name = self._get_label_for_configured_account(
@@ -144,26 +133,26 @@ class ETradeProcessor:
 
             return result
 
-    def __init__(
-        self, args: argparse.Namespace, configured_accounts: list[config.Account]
-    ):
+    def __init__(self, args: argparse.Namespace, user: UserConfig):
         self._start_date = args.startdate
         self._end_date = args.enddate
-        self._accounts_to_process = ETradeProcessor._filter_configured_accounts(
-            configured_accounts, args.accounts
-        )
+        self._user = user
         logger.debug(
-            f"startdate {self._start_date}, enddate {self._end_date}, configured "
-            f"accounts {self._accounts_to_process}"
+            f"startdate {self._start_date}, enddate {self._end_date}, user {self._user}"
         )
 
         self._worksheet = Worksheet(args.google_sheet_id)
 
         self._client = ETradeCachedClient(
-            config.etrade_consumer_key(),
-            config.etrade_consumer_secret(),
+            self._user.etrade.key.api,
+            self._user.etrade.key.secret,
             args.fromcache,
         )
+
+        logger.debug("Ensuring connectivity")
+        self._client.fetch_accounts()
+
+    def fetch_data(self):
         self._accounts = self._fetch_accounts()
         logger.debug(f"Fetched {len(self._accounts)} accounts")
 
@@ -226,9 +215,13 @@ class ETradeProcessor:
 
 
 def main() -> int:
-    processor = ETradeProcessor(args, config.accounts())
 
-    processor.process_transactions()
+    for user in config.users:
+        print(f"Processing transactions for {user.name}")
+        processor = ETradeProcessor(args, user)
+
+        processor.fetch_data()
+        processor.process_transactions()
 
     return 0
 
