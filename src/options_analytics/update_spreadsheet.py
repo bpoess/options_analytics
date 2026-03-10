@@ -14,9 +14,13 @@ from datetime import datetime, timedelta
 
 from tqdm import tqdm
 
-from options_analytics.clients.etrade.cache_client import ETradeCachedClient
-from options_analytics.config import Config, UserConfig
-from options_analytics.models import Account, TransactionCategory
+import options_analytics.etrade as etrade
+from options_analytics.config import Config
+from options_analytics.models import (
+    OptionTransaction,
+    TransactionCategory,
+    TransactionKind,
+)
 from options_analytics.worksheet import Worksheet
 
 CURRENT_DATE = datetime.now()
@@ -92,87 +96,124 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-class ETradeProcessor:
-    _client: ETradeCachedClient
+class TransactionRepository:
+    transactions: list[OptionTransaction]
+    _order_index: dict[
+        [OptionTransaction]
+    ] = {}  # Maps account ID + order ID -> [OptionTransaction]
+
+    def __init__(self, transactions: list[OptionTransaction]):
+        logger.debug(f"Storing {len(transactions)} transactions")
+        self.transactions = transactions
+
+        for transaction in transactions:
+            if transaction.order_id is not None:
+                key = transaction.account_id + ":" + transaction.order_id
+                if self._order_index.get(key) is None:
+                    self._order_index[key] = []
+
+                self._order_index[key].append(transaction)
+
+    def find_transactions_for_order_id(
+        self, account_id: str, order_id: str
+    ) -> list[OptionTransaction]:
+        return self._order_index.get(f"{account_id}:{order_id}", [])
+
+
+class OptionTransactionsProcessor:
     _start_date: str
     _end_date: str
-    # Configured Accounts for processing [ID:Label]
-    _user: UserConfig
-    # Fetched ETrade Accounts
-    _accounts: list[Account]
+    _config: Config
     _worksheet: Worksheet
-
-    def _fetch_accounts(self) -> list[Account]:
-        with tqdm(total=0, desc="Fetching accounts", leave=True) as progress_bar:
-            result = []
-            accounts = self._client.fetch_accounts()
-
-            for data in accounts:
-                account = Account.model_validate(data)
-                configured_account = self._user.etrade.find_account_by_id(account.id)
-                if not configured_account:
-                    logger.debug(f"Not configured {account}, ignoring")
-                    continue
-
-                account._configured_name = configured_account.label
-                result.append(account)
-                progress_bar.total += 1
-                progress_bar.update(1)
-
-            return result
+    _etrade_repository: etrade.Repository
+    _transaction_repository: TransactionRepository
 
     def __init__(
-        self, args: argparse.Namespace, user: UserConfig, user_data: dict | None = None
+        self, args: argparse.Namespace, config: Config, json_data: dict | None = None
     ):
         self._start_date = args.startdate
         self._end_date = args.enddate
-        self._user = user
-        logger.debug(
-            f"startdate {self._start_date}, enddate {self._end_date}, user {self._user}"
-        )
+        self._config = config
+        logger.debug(f"startdate {self._start_date}, enddate {self._end_date}")
+        self._etrade_repository = etrade.Repository(config.etrade, json_data)
 
         self._worksheet = Worksheet(args.google_sheet_id)
 
-        self._client = ETradeCachedClient(
-            self._user.etrade.key.api,
-            self._user.etrade.key.secret,
-            user_data,
-        )
-
-        logger.debug("Ensuring connectivity")
-        self._client.fetch_accounts()
-
     def fetch_data(self):
-        self._accounts = self._fetch_accounts()
-        logger.debug(f"Fetched {len(self._accounts)} accounts")
+        transactions = [
+            transaction
+            for transaction in self._etrade_repository.list_option_transactions(
+                self._start_date, self._end_date
+            )
+            if not self._worksheet.has_transaction_been_processed(transaction.id)
+        ]
+        self._transaction_repository = TransactionRepository(transactions)
 
-        for account in self._accounts:
-            account.fetch_orders(self._client, self._start_date, self._end_date)
-            account.fetch_transactions(self._client, self._start_date, self._end_date)
+    def is_part_of_roll_order(
+        self, account_id: str, order_id: str
+    ) -> TransactionCategory:
+        transactions = self._transaction_repository.find_transactions_for_order_id(
+            account_id, order_id
+        )
+        assert len(transactions) != 0
 
-    def process_transactions(self):
-        transactions = []
-        for account in self._accounts:
-            for transaction in account.transactions:
-                if self._worksheet.has_transaction_been_processed(transaction.id):
-                    logger.debug(f"{transaction} already processed")
-                    continue
-                account.classify_transaction(transaction)
-                transactions.append(transaction)
+        sell_open = 0
+        buy_close = 0
+        for transaction in transactions:
+            match transaction.kind:
+                case TransactionKind.SELL_OPEN:
+                    sell_open += 1
+                case TransactionKind.BUY_CLOSE:
+                    buy_close += 1
+                case _:
+                    raise ValueError(
+                        f"Order {order_id} Unexpected kind value {transaction}"
+                    )
 
-        if len(transactions) == 0:
-            print("Nothing to do, have a great day!")
+        return sell_open > 0 and buy_close > 0
+
+    def _classify_transaction(self, transaction: OptionTransaction):
+        if transaction.order_id is not None:
+            transaction.is_part_of_roll_order = self.is_part_of_roll_order(
+                transaction.account_id, transaction.order_id
+            )
+
+        match transaction.kind:
+            case TransactionKind.SELL_OPEN:
+                transaction.category = TransactionCategory.OPEN
+            case TransactionKind.BUY_CLOSE:
+                # Bought to close
+                if transaction.is_part_of_roll_order:
+                    transaction.category = TransactionCategory.ROLL
+                else:
+                    transaction.category = TransactionCategory.CLOSED_EARLY
+            case TransactionKind.EXPIRED:
+                transaction.category = TransactionCategory.EXPIRED
+            case TransactionKind.ASSIGNED:
+                transaction.category = TransactionCategory.ASSIGNED
+            case _:
+                raise ValueError(f"Unexpected kind for {transaction}")
+
+    def classify_transactions(self):
+        for transaction in self._transaction_repository.transactions:
+            self._classify_transaction(transaction)
+            logger.debug(
+                f"TC {transaction.category} R {transaction.is_part_of_roll_order} "
+                f"{transaction}"
+            )
+
+    def generate_worksheet_updates(self):
+        if len(self._transaction_repository.transactions) == 0:
+            print("No new transactions to process")
             return
-
-        transactions.sort(key=lambda t: (t.date, t.id))
 
         manual_interventions = []
         with tqdm(
-            total=len(transactions),
+            total=len(self._transaction_repository.transactions),
             desc="Processing transactions",
             leave=True,
         ) as progress_bar:
-            for transaction in transactions:
+            for transaction in self._transaction_repository.transactions:
                 category = transaction.category
                 logger.debug(f"C {category} T {transaction}")
                 if category == TransactionCategory.OPEN:
@@ -194,14 +235,15 @@ class ETradeProcessor:
 
                 progress_bar.update(1)
 
-        self._worksheet.upload_changes()
-
         if len(manual_interventions) > 0:
             logger.debug("Manual Intervention Needed:")
             print("Unable to process the following entries:")
             for transaction in manual_interventions:
                 print(transaction.format_for_script_output())
                 logger.debug(transaction)
+
+    def upload_worksheet_changes(self):
+        self._worksheet.upload_changes()
 
 
 def lookup_user_data(json_data: dict, username: str) -> dict | None:
@@ -216,22 +258,15 @@ def main() -> int:
         with open(args.fromcache) as json_file:
             json_data = json.load(json_file)
 
-        if json_data["version"] != 1:
+        if json_data["version"] != 2:
             raise Exception(f"Unsupported cache data version {json_data['version']}")
 
-    for user in config.users:
-        print(f"Processing transactions for {user.name}")
+    processor = OptionTransactionsProcessor(args, config, json_data)
 
-        user_data = None
-        if json_data:
-            user_data = lookup_user_data(json_data, user.name)
-            if user_data is None:
-                raise Exception(f"Unable to find cached data for {user.name}")
-
-        processor = ETradeProcessor(args, user, user_data)
-
-        processor.fetch_data()
-        processor.process_transactions()
+    processor.fetch_data()
+    processor.classify_transactions()
+    processor.generate_worksheet_updates()
+    processor.upload_worksheet_changes()
 
     return 0
 

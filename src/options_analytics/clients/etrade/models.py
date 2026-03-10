@@ -124,7 +124,7 @@ class Brokerage(BaseModel):
     settlement_currency: str
     payment_currency: str
     fee: DecimalAmount
-    order_no: str
+    order_no: str | None
 
     @field_validator("product", mode="before")
     @classmethod
@@ -132,6 +132,18 @@ class Brokerage(BaseModel):
         # handles {}
         if v == {}:
             return None
+        return v
+
+    @field_validator("order_no", mode="before")
+    @classmethod
+    def skip_zero_order_no(cls, v: Any):
+        if v is None:
+            return None
+        if v == "":
+            return None
+        if int(v) == 0:
+            return None
+
         return v
 
 

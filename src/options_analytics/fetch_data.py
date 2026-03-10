@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from tqdm import tqdm
 
 from options_analytics.clients.etrade.client import ETradeClient
-from options_analytics.config import Config, UserConfig
+from options_analytics.config import Config
 
 # Constants
 current_date = datetime.now()
@@ -72,27 +72,29 @@ logger.setLevel(logging.DEBUG)
 
 
 def fetch_data(
-    user: UserConfig,
-    user_data: dict,
+    config: Config,
+    json_data: dict,
     start_date: str,
     end_date: str,
 ):
-    client = ETradeClient(user.etrade.key.api, user.etrade.key.secret, sandbox=False)
+    client = ETradeClient(
+        config.etrade.key.api, config.etrade.key.secret, sandbox=False
+    )
 
-    user_data["Accounts"] = []
-    user_data["OrderList"] = {}
-    user_data["OrderDetails"] = {}
-    user_data["Transactions"] = {}
-    user_data["TransactionDetails"] = {}
+    json_data["Accounts"] = []
+    json_data["OrderList"] = {}
+    json_data["OrderDetails"] = {}
+    json_data["Transactions"] = {}
+    json_data["TransactionDetails"] = {}
 
     fetched_accounts = client.fetch_accounts()
     accounts = list(
         filter(
-            lambda x: user.etrade.find_account_by_id(x["accountId"]) is not None,
+            lambda x: config.etrade.find_account_by_id(x["accountId"]) is not None,
             fetched_accounts,
         )
     )
-    user_data["Accounts"] = accounts
+    json_data["Accounts"] = accounts
 
     logger.info(f"Fetching data for {len(accounts)} accounts")
 
@@ -103,13 +105,13 @@ def fetch_data(
         account_id_key = account["accountIdKey"]
 
         logger.info(f"Fetching order list for account {accountId}...")
-        order_list = user_data["OrderList"][accountId] = client.fetch_order_list(
+        order_list = json_data["OrderList"][accountId] = client.fetch_order_list(
             account_id_key,
             start_date,
             end_date,
         )
 
-        order_details = user_data["OrderDetails"][accountId] = {}
+        order_details = json_data["OrderDetails"][accountId] = {}
         with tqdm(
             total=len(order_list), desc="Fetching order details", leave=True
         ) as progress_bar:
@@ -119,10 +121,10 @@ def fetch_data(
         total_orders += len(order_list)
 
         logger.info(f"Fetching transactions for account {accountId}...")
-        transaction_list = user_data["Transactions"][accountId] = (
+        transaction_list = json_data["Transactions"][accountId] = (
             client.fetch_transactions(account_id_key, start_date, end_date)
         )
-        transaction_details = user_data["TransactionDetails"][accountId] = {}
+        transaction_details = json_data["TransactionDetails"][accountId] = {}
         with tqdm(
             total=len(transaction_list), desc="Fetching transaction details", leave=True
         ) as progress_bar:
@@ -146,15 +148,9 @@ def main() -> int:
 
     logger.info(f"Date range: {args.startdate} to {args.enddate}")
 
-    json_data = {"version": 1, "users": []}
+    json_data = {"version": 2}
 
-    for user in config.users:
-        logger.info(f"Fetching data for {user.name}")
-        user_data = {}
-        user_data["username"] = user.name
-
-        fetch_data(user, user_data, args.startdate, args.enddate)
-        json_data["users"].append(user_data)
+    fetch_data(config, json_data, args.startdate, args.enddate)
 
     with open(args.out, "w") as json_file:
         json.dump(json_data, json_file, indent=4)

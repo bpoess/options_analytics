@@ -1,40 +1,23 @@
 # Example config for options_analytics.
 # Copy this file to config.toml and replace placeholder values.
 
-[[users]]
-# Friendly name for this user profile.
-name = "Your Name"
+version = 1
 
-[[users.etrade.accounts]]
+[etrade]
+
+[[etrade.accounts]]
 # Display label for an E*TRADE account.
 label = "Primary Individual"
 # E*TRADE account ID.
 id = "123456789"
 
-[[users.etrade.accounts]]
+[[etrade.accounts]]
 # You can add additional account blocks as needed.
 label = "Business LLC"
 id = "987654321"
 
-[users.etrade.key]
+[etrade.key]
 # E*TRADE API consumer key from the developer portal.
 api = "your_etrade_api_key"
 # E*TRADE API consumer secret from the developer portal.
 secret = "your_etrade_api_secret"
-
-# Optional: add a second user profile only if you manage multiple E*TRADE users.
-[[users]]
-# Friendly name for the second user profile.
-name = "Second User Name"
-
-[[users.etrade.accounts]]
-# Display label for one of this user's E*TRADE accounts.
-label = "Second User Individual"
-# E*TRADE account ID for the second user.
-id = "112233445"
-
-[users.etrade.key]
-# E*TRADE API consumer key for the second user.
-api = "second_user_etrade_api_key"
-# E*TRADE API consumer secret for the second user.
-secret = "second_user_etrade_api_secret"

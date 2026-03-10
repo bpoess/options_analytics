@@ -7,7 +7,11 @@ from typing import Any
 import pygsheets
 from tqdm import tqdm
 
-from options_analytics.models import Transaction, TransactionCategory
+from options_analytics.models import (
+    OptionTransaction,
+    TransactionCategory,
+    TransactionKind,
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -122,31 +126,31 @@ class WorksheetRow:
         self.transactions = transactions
 
     @classmethod
-    def from_transaction(cls, transaction: Transaction) -> WorksheetRow:
-        product = transaction.brokerage.product
+    def from_transaction(cls, transaction: OptionTransaction) -> WorksheetRow:
 
         bought_sold = ""
-        if transaction.brokerage.transaction_type == "Sold Short":
-            bought_sold = "S"
-        elif transaction.brokerage.transaction_type == "Bought To Open":
-            bought_sold = "B"
+        match transaction.kind:
+            case TransactionKind.SELL_OPEN:
+                bought_sold = "S"
+            case _:
+                raise ValueError(f"Unexpected kind in {transaction}")
 
         roll_id = ""
-        if transaction._order_category == TransactionCategory.ROLL:
-            roll_id = transaction.brokerage.order_no.strip()
+        if transaction.is_part_of_roll_order:
+            roll_id = transaction.order_id.strip()
 
         return cls(
             transaction.key,
-            product.symbol,
+            transaction.symbol,
             transaction.date.strftime("%m/%d/%y"),
-            product.expiry_date,
-            product.call_put.capitalize(),
+            transaction.expiry_date,
+            transaction.call_or_put,
             bought_sold,
-            f"{product.strike_price:,f}",
-            f"{transaction.brokerage.price:,f}",
-            f"{abs(transaction.brokerage.quantity):,f}",
-            f"{transaction.brokerage.fee:,f}",
-            transaction._account_label,
+            f"{transaction.strike_price:,f}",
+            f"{transaction.price:,f}",
+            f"{transaction.quantity:,f}",
+            f"{transaction.fee:,f}",
+            transaction.account_label,
             "Open",
             roll_id,
             transaction.id,
@@ -314,6 +318,11 @@ class Worksheet:
 
     def upload_changes(self):
         remote_updates = sorted(self.rows.items(), key=lambda item: item[0])  # row_num
+
+        if len(remote_updates) == 0:
+            logger.debug("No changes, nothing to upload")
+            return
+
         with tqdm(
             total=len(remote_updates), desc="Updating tracker sheet", leave=True
         ) as progress_bar:
@@ -355,7 +364,7 @@ class Worksheet:
         self.rows[self.next_empty_row] = row
         self.next_empty_row += 1
 
-    def add(self, transaction: Transaction):
+    def add(self, transaction: OptionTransaction):
         self._insert(WorksheetRow.from_transaction(transaction))
 
     def _fetch_rows_if_needed(self, product_key: str):
@@ -373,7 +382,9 @@ class Worksheet:
             data = self._tracker.get_row(row_num)
             self.rows[row_num] = WorksheetRow.from_tracker_data(data)
 
-    def _find_rows_for(self, transaction: Transaction) -> list[(int, WorksheetRow)]:
+    def _find_rows_for(
+        self, transaction: OptionTransaction
+    ) -> list[(int, WorksheetRow)]:
         product_key = transaction.key
 
         self._fetch_rows_if_needed(product_key)
@@ -393,7 +404,7 @@ class Worksheet:
         self,
         row: WorksheetRow,
         num_contracts_covered: Decimal,
-        transaction: Transaction,
+        transaction: OptionTransaction,
         category: TransactionCategory,
     ):
         num_contracts = Decimal(row.num_contracts)
@@ -412,11 +423,11 @@ class Worksheet:
             self._insert(new_row)
 
         # Update roll IDs
-        if transaction._order_category == TransactionCategory.ROLL:
+        if transaction.is_part_of_roll_order:
             rolls = [
                 roll_id.strip() for roll_id in row.roll_id.split(",") if roll_id.strip()
             ]
-            rolls.append(transaction.brokerage.order_no.strip())
+            rolls.append(transaction.order_id.strip())
             row.roll_id = ", ".join(rolls)
 
         # Update transaction IDs
@@ -433,14 +444,14 @@ class Worksheet:
             or category == TransactionCategory.ROLL
             or category == TransactionCategory.ASSIGNED
         ):
-            row.closing_fees = f"{transaction.brokerage.fee:,f}"
-            row.exit_price = f"{transaction.brokerage.price:,f}"
+            row.closing_fees = f"{transaction.fee:,f}"
+            row.exit_price = f"{transaction.price:,f}"
             row.close_date = transaction.date.strftime("%m/%d/%y")
             row.close_reason = category
         elif category == TransactionCategory.EXPIRED:
             row.closing_fees = "0"
             row.exit_price = "0"
-            row.close_date = transaction.brokerage.product.expiry_date
+            row.close_date = transaction.expiry_date
             row.close_reason = TransactionCategory.EXPIRED
         else:
             raise ValueError(
@@ -451,11 +462,11 @@ class Worksheet:
 
     def _update_multiple(
         self,
-        transaction: Transaction,
+        transaction: OptionTransaction,
         category: TransactionCategory,
         row_tuples: list[(int, WorksheetRow)],
     ) -> bool:
-        transaction_num_contracts = abs(transaction.brokerage.quantity)
+        transaction_num_contracts = transaction.quantity
 
         # Check that we have enough contracts to cover the transaction
         total_contracts = sum(
@@ -485,10 +496,13 @@ class Worksheet:
 
         return True
 
-    def update(self, transaction: Transaction, category: TransactionCategory) -> bool:
+    def update(
+        self, transaction: OptionTransaction, category: TransactionCategory
+    ) -> bool:
         rows = self._find_rows_for(transaction)
 
         if len(rows) == 0:
+            logger.debug(f"Didn't find any rows for {transaction}")
             return False
 
         return self._update_multiple(transaction, category, rows)

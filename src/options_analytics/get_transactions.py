@@ -13,7 +13,7 @@ from typing import NamedTuple
 
 from options_analytics.clients.etrade.cache_client import ETradeCachedClient
 from options_analytics.clients.etrade.models import Account, Transaction
-from options_analytics.config import Config, UserConfig
+from options_analytics.config import Config
 
 current_date = datetime.now()
 seven_days_ago = current_date - timedelta(days=7)
@@ -100,14 +100,14 @@ class Contract(NamedTuple):
         )
 
 
-def get_accounts(client: ETradeCachedClient, user: UserConfig):
+def get_accounts(client: ETradeCachedClient, config: Config):
     """Returns an array of etrade Account dictionaries"""
 
     accounts = client.fetch_accounts()
 
     return list(
         filter(
-            lambda account: user.etrade.find_account_by_id(account.id) is not None,
+            lambda account: config.etrade.find_account_by_id(account.id) is not None,
             map(lambda data: Account.model_validate(data), accounts),
         )
     )
@@ -171,7 +171,7 @@ def get_transactions(
 
 
 def format_transactions(
-    user: UserConfig,
+    config: Config,
     account: Account,
     data_dict: dict,
     contract_open_list: list[Contract],
@@ -195,7 +195,9 @@ def format_transactions(
         quantity = f"{abs(transaction.brokerage.quantity):,f}"
         fee = f"{transaction.brokerage.fee:,f}"
 
-        account_name = next(v.label for v in user.etrade.accounts if v.id == account.id)
+        account_name = next(
+            v.label for v in config.etrade.accounts if v.id == account.id
+        )
 
         action = transaction.brokerage.transaction_type
         if action == "Sold Short":
@@ -279,7 +281,7 @@ def format_transactions(
 
 
 def query_account(
-    user: UserConfig,
+    config: Config,
     client: ETradeCachedClient,
     account: Account,
 ):
@@ -293,7 +295,7 @@ def query_account(
     get_transactions(client, account, data_dict, error_list)
 
     format_transactions(
-        user,
+        config,
         account,
         data_dict,
         contract_open_list,
@@ -367,12 +369,6 @@ def query_account(
         print(item)
 
 
-def lookup_user_data(json_data: dict, username: str) -> dict | None:
-    for user in json_data["users"]:
-        if user["username"] == username:
-            return user
-
-
 def main() -> int:
 
     json_data = None
@@ -380,26 +376,17 @@ def main() -> int:
         with open(args.fromcache) as json_file:
             json_data = json.load(json_file)
 
-        if json_data["version"] != 1:
+        if json_data["version"] != 2:
             raise Exception(f"Unsupported cache data version {json_data['version']}")
 
-    for user in config.users:
-        print(f"Processing transactions for {user.name}")
+    client = ETradeCachedClient(
+        config.etrade.key.api, config.etrade.key.secret, json_data
+    )
 
-        user_data = None
-        if json_data:
-            user_data = lookup_user_data(json_data, user.name)
-            if user_data is None:
-                raise Exception(f"Unable to find cached data for {user.name}")
-
-        client = ETradeCachedClient(
-            user.etrade.key.api, user.etrade.key.secret, user_data
-        )
-
-        accounts = get_accounts(client, user)
-        for account in accounts:
-            query_account(user, client, account)
-            print("\n")
+    accounts = get_accounts(client, config)
+    for account in accounts:
+        query_account(config, client, account)
+        print("\n")
 
     return 0
 
