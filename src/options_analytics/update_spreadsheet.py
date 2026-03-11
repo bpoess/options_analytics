@@ -100,12 +100,13 @@ class TransactionRepository:
     transactions: list[OptionTransaction]
     _order_index: dict[
         [OptionTransaction]
-    ] = {}  # Maps account ID + order ID -> [OptionTransaction]
+    ]  # Maps account ID + order ID -> [OptionTransaction]
 
     def __init__(self, transactions: list[OptionTransaction]):
         logger.debug(f"Storing {len(transactions)} transactions")
         self.transactions = transactions
 
+        self._order_index = {}
         for transaction in transactions:
             if transaction.order_id is not None:
                 key = transaction.account_id + ":" + transaction.order_id

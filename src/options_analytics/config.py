@@ -83,7 +83,9 @@ class ConfigV0(BaseModel):
 def convert_v0_to_v1_config(data: dict) -> dict:
     config_v0 = ConfigV0.model_validate(data)
     if len(config_v0.users) > 1:
-        print("config.toml needs manual changes. Only one user is supported now.")
+        raise ValueError(
+            "config.toml needs manual changes. Only one user is supported now."
+        )
 
     etrade_config_v0 = config_v0.users[0].etrade
     new_data = {}

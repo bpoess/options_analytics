@@ -25,9 +25,10 @@ class Account:
 class Repository:
     _config: ETradeConfig
     _client: ETradeCachedClient
-    _accounts: list[Account] = []
+    _accounts: list[Account]
 
     def __init__(self, config: ETradeConfig, json_data: dict | None = None):
+        self._accounts = []
         self._config = config
         self._client = ETradeCachedClient(
             self._config.key.api,
@@ -151,6 +152,8 @@ class Repository:
 
                     option_transactions[transaction.id] = option_transaction
                     logger.debug(f"Adding {option_transaction.id} {option_transaction}")
+                else:
+                    logger.debug(f"Skipping {transaction}")
 
                 progress_bar.update(1)
 

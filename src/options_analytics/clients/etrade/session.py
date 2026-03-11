@@ -129,6 +129,6 @@ class ETradeSession:
         except Exception:
             print(
                 "Unable to get authenticated session, "
-                "check config.ini for correct consumer_key and consumer_secret"
+                "check config for correct consumer_key and consumer_secret"
             )
             sys.exit(1)

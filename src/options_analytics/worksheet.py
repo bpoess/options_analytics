@@ -251,19 +251,24 @@ class WorksheetRow:
 
 
 class Worksheet:
-    rows: dict[WorksheetRow] = {}
+    rows: dict[WorksheetRow]
     next_empty_row: int
     _last_remote_row_with_data: int
     _client: pygsheets.Client
     _gsheet: pygsheets.Spreadsheet
     _tracker: pygsheets.Worksheets
-    _product_key_to_row_num_index: dict[[int]] = {}
-    _transactions_processed_index: dict[bool] = {}
+    _product_key_to_row_num_index: dict[[int]]
+    _transactions_processed_index: dict[bool]
 
     _TRACKER_TAB: str = "Puts/Calls"
 
     def __init__(self, google_sheet_id: str):
         logger.debug("Initializing sheet connection")
+
+        self.rows = {}
+        self._product_key_to_row_num_index = {}
+        self._transactions_processed_index = {}
+
         self._client = pygsheets.authorize(
             client_secret="credentials.json",
             scopes=["https://www.googleapis.com/auth/spreadsheets"],
