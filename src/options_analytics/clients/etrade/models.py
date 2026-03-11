@@ -215,7 +215,7 @@ class ExecutedOrder(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, strict=True)
 
     id: str = Field(alias="orderId")
-    type: str = Field(alias="orderType", default=None)
+    type: str | None = Field(alias="orderType", default=None)
     executed_time: DateTimeFromMs
     status: str
     events: list[Event] = Field(alias="Events")

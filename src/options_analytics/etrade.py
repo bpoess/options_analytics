@@ -82,7 +82,7 @@ class Repository:
         account: Account,
         startdate: str,
         enddate: str,
-        option_transactions: dict[OptionTransaction],
+        option_transactions: dict[str, OptionTransaction],
     ):
         with tqdm(
             total=0, desc=f"Fetching transactions for {account.label}", leave=True
@@ -100,7 +100,8 @@ class Repository:
                 if Repository.option_transaction_filter(transaction):
                     # Sanity checks
                     if (
-                        not transaction.brokerage.product.call_put
+                        not transaction.brokerage.product
+                        or not transaction.brokerage.product.call_put
                         or transaction.brokerage.settlement_currency != "USD"
                         or transaction.brokerage.payment_currency != "USD"
                     ):
@@ -146,6 +147,8 @@ class Repository:
                     option_transaction.expiry_date = (
                         transaction.brokerage.product.expiry_date
                     )
+                    if not transaction.brokerage.product.strike_price:
+                        raise ValueError(f"Unexpected strike_price value {transaction}")
                     option_transaction.strike_price = (
                         transaction.brokerage.product.strike_price
                     )

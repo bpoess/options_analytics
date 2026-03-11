@@ -14,6 +14,8 @@ AUTH_TOKEN_URL = "https://us.etrade.com/e/t/etws/authorize"
 
 
 class ETradeSession:
+    _session: OAuth1Session | None = None
+
     """Manages OAuth session lifecycle for E*Trade API."""
 
     def __init__(
@@ -27,7 +29,6 @@ class ETradeSession:
         self._consumer_secret = consumer_secret
         self.token_path = Path(token_path)
         self.sandbox = sandbox
-        self._session: OAuth1Session | None = None
 
     @property
     def base_url(self) -> str:
@@ -94,6 +95,8 @@ class ETradeSession:
 
     def _renew_session(self):
         """Renew the session token."""
+        assert self._session is not None
+
         try:
             self._session.get(f"{self.base_url}/oauth/renew_access_token")
         except Exception:
@@ -123,9 +126,9 @@ class ETradeSession:
             text_code = input(
                 "Please accept agreement and enter text code from browser: "
             )
-            session._client.client.verifier = text_code
-
-            return session.fetch_access_token(f"{self.base_url}/oauth/access_token")
+            return session.fetch_access_token(
+                f"{self.base_url}/oauth/access_token", verifier=text_code
+            )
         except Exception:
             print(
                 "Unable to get authenticated session, "

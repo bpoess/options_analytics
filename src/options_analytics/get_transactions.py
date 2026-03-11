@@ -152,7 +152,7 @@ def get_transactions(
     client: ETradeCachedClient,
     account: Account,
     data_dict: dict,
-    error_list: [Transaction],
+    error_list: list[Transaction],
 ):
     transactions = client.fetch_transactions(
         account.id_key, args.startdate, args.enddate

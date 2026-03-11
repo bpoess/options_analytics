@@ -5,6 +5,9 @@ from decimal import Decimal
 from typing import Any
 
 import pygsheets
+from pygsheets.client import Client as PygsheetsClient
+from pygsheets.spreadsheet import Spreadsheet as PygsheetsSpreadsheet
+from pygsheets.worksheet import Worksheet as PygsheetsWorksheet
 from tqdm import tqdm
 
 from options_analytics.models import (
@@ -15,6 +18,8 @@ from options_analytics.models import (
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
+type TableRow = list[str]
 
 
 class WorksheetRow:
@@ -137,6 +142,7 @@ class WorksheetRow:
 
         roll_id = ""
         if transaction.is_part_of_roll_order:
+            assert transaction.order_id
             roll_id = transaction.order_id.strip()
 
         return cls(
@@ -217,7 +223,7 @@ class WorksheetRow:
     def __repr__(self) -> str:
         return self._format()
 
-    def materialize_table_row(self, row_num: int) -> list[Any]:
+    def materialize_table_row(self, row_num: int) -> TableRow:
         return [
             self.product_key,
             self.symbol,
@@ -254,9 +260,9 @@ class Worksheet:
     rows: dict[int, WorksheetRow]
     next_empty_row: int
     _last_remote_row_with_data: int
-    _client: pygsheets.Client
-    _gsheet: pygsheets.Spreadsheet
-    _tracker: pygsheets.Worksheets
+    _client: PygsheetsClient
+    _gsheet: PygsheetsSpreadsheet
+    _tracker: PygsheetsWorksheet
     _product_key_to_row_num_index: dict[str, list[int]]
     _transactions_processed_index: dict[str, bool]
 
@@ -332,28 +338,33 @@ class Worksheet:
             total=len(remote_updates), desc="Updating tracker sheet", leave=True
         ) as progress_bar:
             BATCH_SIZE = 50
-            batch_start = None
-            batch_end = None
-            batch = []
+            batch_start: int | None = None
+            batch_end: int | None = None
+            batch: list[TableRow] = []
             for row_num, worksheet_row in remote_updates:
                 if batch_start is None:
                     batch_start = row_num
                     batch_end = row_num
                     batch = []
-                elif (
-                    row_num != (batch_end + 1)
-                    or (batch_end - batch_start) == BATCH_SIZE
-                ):
-                    logger.debug(f"Flush row A{batch_start}:AB{batch_end}")
-                    self._tracker.update_values(f"A{batch_start}:AB{batch_end}", batch)
-                    progress_bar.update(batch_end - batch_start + 1)
-                    # Reset batch
-                    batch_start = row_num
-                    batch_end = row_num
-                    batch = []
                 else:
-                    assert row_num == batch_end + 1
-                    batch_end = row_num
+                    assert batch_start is not None
+                    assert batch_end is not None
+                    if (
+                        row_num != (batch_end + 1)
+                        or (batch_end - batch_start) == BATCH_SIZE
+                    ):
+                        logger.debug(f"Flush row A{batch_start}:AB{batch_end}")
+                        self._tracker.update_values(
+                            f"A{batch_start}:AB{batch_end}", batch
+                        )
+                        progress_bar.update(batch_end - batch_start + 1)
+                        # Reset batch
+                        batch_start = row_num
+                        batch_end = row_num
+                        batch = []
+                    else:
+                        assert row_num == batch_end + 1
+                        batch_end = row_num
 
                 data = worksheet_row.materialize_table_row(row_num)
                 batch.append(data)
@@ -361,9 +372,11 @@ class Worksheet:
                 logger.debug(f"[{row_num}] {worksheet_row}")
 
             # Flush leftovers from the batch
-            logger.debug(f"Flush row A{batch_start}:AB{batch_end}")
-            self._tracker.update_values(f"A{batch_start}:AB{batch_end}", batch)
-            progress_bar.update(batch_end - batch_start + 1)
+            if batch_start is not None:
+                assert batch_end is not None
+                logger.debug(f"Flush row A{batch_start}:AB{batch_end}")
+                self._tracker.update_values(f"A{batch_start}:AB{batch_end}", batch)
+                progress_bar.update(batch_end - batch_start + 1)
 
     def _insert(self, row: WorksheetRow):
         self.rows[self.next_empty_row] = row
@@ -389,7 +402,7 @@ class Worksheet:
 
     def _find_rows_for(
         self, transaction: OptionTransaction
-    ) -> list[(int, WorksheetRow)]:
+    ) -> list[tuple[int, WorksheetRow]]:
         product_key = transaction.key
 
         self._fetch_rows_if_needed(product_key)
@@ -420,7 +433,7 @@ class Worksheet:
             # Transaction covers parts of the contract, split the row
             num_contracts_left = num_contracts - num_contracts_covered
             # Existing row contains the update
-            row.num_contracts = num_contracts_covered
+            row.num_contracts = f"{num_contracts_covered:, f}"
             # New row contains the remaining contracts
             new_row = WorksheetRow.new_open(row)
             new_row.num_contracts = f"{num_contracts_left:,f}"
@@ -429,6 +442,7 @@ class Worksheet:
 
         # Update roll IDs
         if transaction.is_part_of_roll_order:
+            assert transaction.order_id
             rolls = [
                 roll_id.strip() for roll_id in row.roll_id.split(",") if roll_id.strip()
             ]
@@ -469,7 +483,7 @@ class Worksheet:
         self,
         transaction: OptionTransaction,
         category: TransactionCategory,
-        row_tuples: list[(int, WorksheetRow)],
+        row_tuples: list[tuple[int, WorksheetRow]],
     ) -> bool:
         transaction_num_contracts = transaction.quantity
 

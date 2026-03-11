@@ -31,11 +31,13 @@ class Config(BaseModel):
     etrade: ETradeConfig
 
     @staticmethod
-    def from_file(path: str, overrides: list[str] | None = None) -> Config:
+    def from_file(
+        path_str_or_obj: str | Path, overrides: list[str] | None = None
+    ) -> Config:
         if overrides is not None:
             raise Exception("Not implemented")
 
-        path = Path(path)
+        path = Path(path_str_or_obj)
         if not path.exists():
             raise FileNotFoundError(f"Config file not found: {path}")
         with open(path, "rb") as f:

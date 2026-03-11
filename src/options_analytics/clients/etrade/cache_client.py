@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import logging
 from datetime import datetime, time, timedelta
 from pprint import pformat
+from typing import Any
 from urllib.parse import urlsplit
 
 from options_analytics.clients.etrade.client import ETradeClient
@@ -22,6 +25,10 @@ def date_filter(transaction, start_date_time, end_date_time_exclusive):
 class ETradeCachedClient:
     """Wrapper around ETradeClient that supports cached data."""
 
+    _cached: bool
+    _client: ETradeClient
+    _json_data: dict[str, Any]
+
     def __init__(
         self,
         consumer_key: str,
@@ -36,30 +43,32 @@ class ETradeCachedClient:
             self._cached = True
             self._json_data = cache_data
 
-    def fetch_accounts(self) -> list[dict]:
+    def fetch_accounts(self) -> list[dict[str, Any]]:
         if self._cached:
             return self._json_data["Accounts"]
         else:
             return self._client.fetch_accounts()
 
-    def _get_cached_account(self, account_id_key) -> dict:
+    def _get_cached_account(self, account_id_key: str) -> dict[str, Any]:
         for account in self._json_data["Accounts"]:
             if account_id_key == account["accountIdKey"]:
                 return account
 
-        return None
+        raise ValueError(
+            f"Cached account not found for account_id_key={account_id_key}"
+        )
 
     def _fetch_cached_transactions(
         self,
         account_id_key: str,
-        start_date: str,
-        end_date: str,
+        start_date_str: str,
+        end_date_str: str,
     ) -> list:
         account = self._get_cached_account(account_id_key)
         transactions = self._json_data["Transactions"][account["accountId"]]
 
-        start_date = datetime.strptime(start_date, "%m%d%Y").date()
-        end_date = datetime.strptime(end_date, "%m%d%Y").date()
+        start_date = datetime.strptime(start_date_str, "%m%d%Y").date()
+        end_date = datetime.strptime(end_date_str, "%m%d%Y").date()
 
         start_date_time = datetime.combine(start_date, time.min)  # 00:00:00
         end_date_time_exclusive = datetime.combine(
@@ -112,8 +121,8 @@ class ETradeCachedClient:
     def fetch_order_list(
         self,
         account_id_key: str,
-        start_date: str,
-        end_date: str,
+        start_date_str: str,
+        end_date_str: str,
         status: str | None = None,
     ) -> list[dict]:
         """List orders for an account.
@@ -131,8 +140,8 @@ class ETradeCachedClient:
             account = self._get_cached_account(account_id_key)
             orders = self._json_data["OrderList"][account["accountId"]]
 
-            start_date = datetime.strptime(start_date, "%m%d%Y").date()
-            end_date = datetime.strptime(end_date, "%m%d%Y").date()
+            start_date = datetime.strptime(start_date_str, "%m%d%Y").date()
+            end_date = datetime.strptime(end_date_str, "%m%d%Y").date()
 
             start_date_time = datetime.combine(start_date, time.min)  # 00:00:00
             end_date_time_exclusive = datetime.combine(
@@ -167,7 +176,7 @@ class ETradeCachedClient:
 
         else:
             return self._client.fetch_order_list(
-                account_id_key, start_date, end_date, status
+                account_id_key, start_date_str, end_date_str, status
             )
 
     def fetch_order_details(self, order: dict):

@@ -24,5 +24,21 @@ setup_config = "options_analytics.setup_config:main"
 [dependency-groups]
 dev = [
     "pyinstaller>=6.19.0",
+    "pyright>=1.1.408",
     "ruff>=0.15.4",
 ]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.13"
+include = ["src"]
+exclude = ["**/__pycache__", "build", "dist", ".venv"]
+typeCheckingMode = "standard"
+useLibraryCodeForTypes = true
+reportMissingImports = "error"
+reportMissingTypeStubs = "none"
+
+[[tool.pyright.executionEnvironments]]
+root = "src"
+extraPaths = ["src"]
