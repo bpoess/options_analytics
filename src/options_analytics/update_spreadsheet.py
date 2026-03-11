@@ -98,9 +98,8 @@ logger.setLevel(logging.DEBUG)
 
 class TransactionRepository:
     transactions: list[OptionTransaction]
-    _order_index: dict[
-        [OptionTransaction]
-    ]  # Maps account ID + order ID -> [OptionTransaction]
+    # Maps account ID + order ID -> [OptionTransaction]
+    _order_index: dict[str, list[OptionTransaction]]
 
     def __init__(self, transactions: list[OptionTransaction]):
         logger.debug(f"Storing {len(transactions)} transactions")
@@ -150,9 +149,7 @@ class OptionTransactionsProcessor:
         ]
         self._transaction_repository = TransactionRepository(transactions)
 
-    def is_part_of_roll_order(
-        self, account_id: str, order_id: str
-    ) -> TransactionCategory:
+    def _is_part_of_roll_order(self, account_id: str, order_id: str) -> bool:
         transactions = self._transaction_repository.find_transactions_for_order_id(
             account_id, order_id
         )
@@ -175,7 +172,7 @@ class OptionTransactionsProcessor:
 
     def _classify_transaction(self, transaction: OptionTransaction):
         if transaction.order_id is not None:
-            transaction.is_part_of_roll_order = self.is_part_of_roll_order(
+            transaction.is_part_of_roll_order = self._is_part_of_roll_order(
                 transaction.account_id, transaction.order_id
             )
 

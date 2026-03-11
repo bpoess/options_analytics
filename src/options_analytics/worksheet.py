@@ -251,14 +251,14 @@ class WorksheetRow:
 
 
 class Worksheet:
-    rows: dict[WorksheetRow]
+    rows: dict[int, WorksheetRow]
     next_empty_row: int
     _last_remote_row_with_data: int
     _client: pygsheets.Client
     _gsheet: pygsheets.Spreadsheet
     _tracker: pygsheets.Worksheets
-    _product_key_to_row_num_index: dict[[int]]
-    _transactions_processed_index: dict[bool]
+    _product_key_to_row_num_index: dict[str, list[int]]
+    _transactions_processed_index: dict[str, bool]
 
     _TRACKER_TAB: str = "Puts/Calls"
 

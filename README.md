@@ -12,7 +12,7 @@ All scripts are packaged as `options_analytics.<script name>`
 
 ## Prerequisites
 
-- Python `>=3.14`
+- Python 3
 - `uv` installed (https://docs.astral.sh/uv/)
 - E*Trade developer API key + secret (https://developer.etrade.com/home)
 - (For `update_spreadsheet`) Google OAuth client credentials for Sheets API
