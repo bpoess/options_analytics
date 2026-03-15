@@ -7,6 +7,7 @@ if __name__ == "__main__":
 
 import argparse
 import logging
+import logging.handlers
 import time
 from datetime import datetime
 from pprint import pformat
@@ -42,11 +43,13 @@ def configure_logging(args):
     ch.setLevel(getattr(logging, args.loglevel.upper()))
     ch.setFormatter(formatter)
     root_logger.addHandler(ch)
-    if args.logfile:
-        fh = logging.FileHandler(args.logfile)
-        fh.setFormatter(formatter)
-        fh.setLevel(logging.DEBUG)
-        root_logger.addHandler(fh)
+
+    fh = logging.handlers.RotatingFileHandler(
+        args.logfile, maxBytes=10 * 1024 * 1024, backupCount=10
+    )
+    fh.setFormatter(formatter)
+    fh.setLevel(logging.DEBUG)
+    root_logger.addHandler(fh)
 
     global logger
     logger = logging.getLogger(__name__)
@@ -66,7 +69,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--logfile",
-        default=None,
+        default="update_open_positions.log",
         help="Path to file target for logs. File logs will be at debug level.",
     )
     parser.add_argument(

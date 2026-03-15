@@ -10,6 +10,7 @@ if __name__ == "__main__":
 import argparse
 import json
 import logging
+import logging.handlers
 from datetime import datetime, timedelta
 
 from tqdm import tqdm
@@ -66,7 +67,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--logfile",
-    default=None,
+    default="update_spreadsheet.log",
     help="Path to file target for logs. File logs will be at debug level.",
 )
 args = parser.parse_args()
@@ -82,11 +83,13 @@ def configure_logging():
     ch.setLevel(getattr(logging, args.loglevel.upper()))
     ch.setFormatter(formatter)
     root_logger.addHandler(ch)
-    if args.logfile:
-        fh = logging.FileHandler(args.logfile)
-        fh.setFormatter(formatter)
-        fh.setLevel(logging.DEBUG)
-        root_logger.addHandler(fh)
+
+    fh = logging.handlers.RotatingFileHandler(
+        args.logfile, maxBytes=10 * 1024 * 1024, backupCount=10
+    )
+    fh.setFormatter(formatter)
+    fh.setLevel(logging.DEBUG)
+    root_logger.addHandler(fh)
 
 
 config = Config.from_file("config.toml")
