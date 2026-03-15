@@ -5,6 +5,7 @@ This package provides these user-facing scripts:
 - `fetch_data`: Pull E*Trade API data into a local JSON cache file without transformation.
 - `get_transactions`: Summarize transactions for use in options tracking.
 - `update_spreadsheet`: List and categorize transactions and update your Google Sheet tracker.
+- `update_open_positions`: List open positions and calculate useful data not in the etrade UI.
 - `setup_config`: Interactive setup for creating `config.toml`.
 
 ## Package Prefix
@@ -15,7 +16,7 @@ All scripts are packaged as `options_analytics.<script name>`
 - Python 3
 - `uv` installed (https://docs.astral.sh/uv/)
 - E*Trade developer API key + secret (https://developer.etrade.com/home)
-- (For `update_spreadsheet`) Google OAuth client credentials for Sheets API
+- (For `update_spreadsheet`, `update_open_positions`) Google OAuth client credentials for Sheets API
 
 ### Obtaining credentials for Google OAuth
 
