@@ -20,21 +20,16 @@ class ETradeClient:
         self._session = ETradeSession(consumer_key, consumer_secret, sandbox=sandbox)
 
     @property
-    def session(self):
-        """Get the underlying OAuth session."""
-        return self._session.get_session()
-
-    @property
-    def base_url(self) -> str:
+    def _base_url(self) -> str:
         """Get the API base URL."""
         return self._session.base_url
 
     def fetch_accounts(self) -> list[dict]:
         """Fetch and return the list of accounts."""
-        url = f"{self.base_url}/v1/accounts/list"
+        url = f"{self._base_url}/v1/accounts/list"
         headers = {"Accept": "application/json"}
 
-        response = self.session.get(url, headers=headers)
+        response = self._session.get(url, headers=headers)
         response.raise_for_status()
 
         accounts_data = response.json()["AccountListResponse"]["Accounts"]["Account"]
@@ -46,10 +41,10 @@ class ETradeClient:
         view: str | None,
     ) -> list[dict[str, Any]]:
         """Fetch and return a list of positions for the given key"""
-        url = f"{self.base_url}/v1/accounts/{account_id_key}/portfolio"
+        url = f"{self._base_url}/v1/accounts/{account_id_key}/portfolio"
         headers = {"Accept": "application/json"}
         params = {"view": view}
-        response = self.session.get(url, headers=headers, params=params)
+        response = self._session.get(url, headers=headers, params=params)
         response.raise_for_status()
         portfolio_response = response.json()["PortfolioResponse"]
         if len(portfolio_response["AccountPortfolio"]) != 1:
@@ -77,10 +72,10 @@ class ETradeClient:
         result = []
         for chunk in symbol_chunks:
             symbol_query_str = ",".join(chunk)
-            url = f"{self.base_url}/v1/market/quote/{symbol_query_str}"
+            url = f"{self._base_url}/v1/market/quote/{symbol_query_str}"
             headers = {"Accept": "application/json"}
             params = {"detailFlag": detail_flag}
-            response = self.session.get(url, headers=headers, params=params)
+            response = self._session.get(url, headers=headers, params=params)
             response.raise_for_status()
 
             result.extend(response.json()["QuoteResponse"]["QuoteData"])
@@ -107,10 +102,10 @@ class ETradeClient:
         """
         result = []
 
-        url = f"{self.base_url}/v1/accounts/{account_id_key}/orders"
+        url = f"{self._base_url}/v1/accounts/{account_id_key}/orders"
         headers = {"Accept": "application/json"}
         params = {"fromDate": start_date, "toDate": end_date, "status": status}
-        response = self.session.get(url, headers=headers, params=params)
+        response = self._session.get(url, headers=headers, params=params)
         if response.status_code != 200:
             logger.warning(
                 f"No orders from account {account_id_key}, "
@@ -129,7 +124,7 @@ class ETradeClient:
         while orders_response.get("marker"):
             marker = orders_response["marker"]
             params["marker"] = marker
-            response = self.session.get(url, headers=headers, params=params)
+            response = self._session.get(url, headers=headers, params=params)
             response.raise_for_status()
 
             data = response.json()
@@ -145,7 +140,7 @@ class ETradeClient:
         headers = {"Accept": "application/json"}
         details_url = order["details"]
 
-        response = self.session.get(details_url, headers=headers)
+        response = self._session.get(details_url, headers=headers)
         response.raise_for_status()
         return response.json().get("OrdersResponse")
 
@@ -167,10 +162,10 @@ class ETradeClient:
         """
         result = []
 
-        url = f"{self.base_url}/v1/accounts/{account_id_key}/transactions"
+        url = f"{self._base_url}/v1/accounts/{account_id_key}/transactions"
         headers = {"Accept": "application/json"}
         params = {"fromDate": start_date, "toDate": end_date}
-        response = self.session.get(url, headers=headers, params=params)
+        response = self._session.get(url, headers=headers, params=params)
         if response.status_code != 200:
             logger.warning(
                 f"No transactions from account {account_id_key}, "
@@ -187,7 +182,7 @@ class ETradeClient:
 
         # Handle pagination using marker
         while transaction_list_response.get("next"):
-            response = self.session.get(
+            response = self._session.get(
                 transaction_list_response.get("next"), headers=headers
             )
             response.raise_for_status()
@@ -211,9 +206,10 @@ class ETradeClient:
         logger.debug(f"Fetching details for {transactionId}")
 
         url = (
-            f"{self.base_url}/v1/accounts/{account_id_key}/transactions/{transactionId}"
+            f"{self._base_url}/v1/accounts/{account_id_key}/"
+            f"transactions/{transactionId}"
         )
-        response = self.session.get(url, headers=headers)
+        response = self._session.get(url, headers=headers)
         response.raise_for_status()
 
         return response.json().get("TransactionDetailsResponse")

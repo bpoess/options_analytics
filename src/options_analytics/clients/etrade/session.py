@@ -5,6 +5,7 @@ import webbrowser
 from datetime import datetime
 from pathlib import Path
 
+import requests
 from pytz import timezone
 from requests_oauthlib import OAuth1Session
 
@@ -14,7 +15,7 @@ AUTH_TOKEN_URL = "https://us.etrade.com/e/t/etws/authorize"
 
 
 class ETradeSession:
-    _session: OAuth1Session | None = None
+    _oauth_session: OAuth1Session | None = None
 
     """Manages OAuth session lifecycle for E*Trade API."""
 
@@ -37,8 +38,8 @@ class ETradeSession:
 
     def get_session(self) -> OAuth1Session:
         """Get a valid OAuth session, authenticating if necessary."""
-        if self._session is not None:
-            return self._session
+        if self._oauth_session is not None:
+            return self._oauth_session
 
         # Remove expired token
         if self._is_token_expired():
@@ -47,14 +48,14 @@ class ETradeSession:
         # Try to load cached token
         token = self._load_cached_token()
         if token:
-            self._session = self._create_session_from_token(token)
+            self._oauth_session = self._create_session_from_token(token)
             self._renew_session()
         else:
             token = self._authorize()
             self._save_token(token)
-            self._session = self._create_session_from_token(token)
+            self._oauth_session = self._create_session_from_token(token)
 
-        return self._session
+        return self._oauth_session
 
     def _create_session_from_token(self, token: dict) -> OAuth1Session:
         """Create an OAuth1Session from a token dict."""
@@ -95,10 +96,10 @@ class ETradeSession:
 
     def _renew_session(self):
         """Renew the session token."""
-        assert self._session is not None
+        assert self._oauth_session is not None
 
         try:
-            self._session.get(f"{self.base_url}/oauth/renew_access_token")
+            self._oauth_session.get(f"{self.base_url}/oauth/renew_access_token")
         except Exception:
             print("Unable to renew session, removing cached token.")
             print("Please try running command again.")
@@ -135,3 +136,6 @@ class ETradeSession:
                 "check config for correct consumer_key and consumer_secret"
             )
             sys.exit(1)
+
+    def get(self, *args, **kwargs) -> requests.Response:
+        return self.get_session().get(*args, **kwargs)
