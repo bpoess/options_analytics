@@ -133,11 +133,45 @@ exe_setup_config = EXE(
     entitlements_file=None,
 )
 
+analysis_update_open_positions = Analysis(
+    ['src/options_analytics/update_open_positions.py'],
+    pathex=[],
+    binaries=[],
+    datas=[],
+    hiddenimports=[],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    noarchive=False,
+    optimize=0,
+)
+pyz_update_open_positions = PYZ(analysis_update_open_positions.pure)
+
+exe_update_open_positions = EXE(
+    pyz_update_open_positions,
+    analysis_update_open_positions.scripts,
+    [],
+    exclude_binaries=True,
+    name='options_analytics.update_open_positions',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    console=True,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+
 coll = COLLECT(
     exe_get_transactions, analysis_get_transactions.binaries, analysis_get_transactions.datas,
     exe_update_spreadsheet, analysis_update_spreadsheet.binaries, analysis_update_spreadsheet.datas,
     exe_fetch_data, analysis_fetch_data.binaries, analysis_fetch_data.datas,
     exe_setup_config, analysis_setup_config.binaries, analysis_setup_config.datas,
+    exe_update_open_positions, analysis_update_open_positions.binaries, analysis_update_open_positions.datas,
     strip=False,
     upx=True,
     upx_exclude=[],
