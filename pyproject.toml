@@ -20,6 +20,7 @@ fetch_data = "options_analytics.fetch_data:main"
 get_transactions = "options_analytics.get_transactions:main"
 update_spreadsheet = "options_analytics.update_spreadsheet:main"
 setup_config = "options_analytics.setup_config:main"
+update_open_positions = "options_analytics.update_open_positions:main"
 
 [dependency-groups]
 dev = [

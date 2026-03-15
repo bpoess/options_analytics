@@ -1,4 +1,6 @@
 import logging
+from pprint import pformat
+from typing import Any
 
 from options_analytics.clients.etrade.session import ETradeSession
 
@@ -37,6 +39,53 @@ class ETradeClient:
 
         accounts_data = response.json()["AccountListResponse"]["Accounts"]["Account"]
         return accounts_data
+
+    def fetch_portfolio(
+        self,
+        account_id_key: str,
+        view: str | None,
+    ) -> list[dict[str, Any]]:
+        """Fetch and return a list of positions for the given key"""
+        url = f"{self.base_url}/v1/accounts/{account_id_key}/portfolio"
+        headers = {"Accept": "application/json"}
+        params = {"view": view}
+        response = self.session.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        portfolio_response = response.json()["PortfolioResponse"]
+        if len(portfolio_response["AccountPortfolio"]) != 1:
+            raise ValueError(
+                f"Unexpected accountPortfolio length "
+                f"{len(portfolio_response['accountPortfolio'])} "
+                f"in {pformat(portfolio_response)}"
+            )
+
+        account_portfolio = portfolio_response["AccountPortfolio"][0]
+        if account_portfolio.get("next"):
+            raise Exception("Paging not yet supported")
+
+        return account_portfolio["Position"]
+
+    def fetch_quotes_for(
+        self, symbols: list[str], detail_flag: str | None = None
+    ) -> list[dict[str, Any]]:
+        _MAX_SYMBOLS_PER_REQUEST = 25
+        symbol_chunks = [
+            symbols[i : i + _MAX_SYMBOLS_PER_REQUEST]
+            for i in range(0, len(symbols), _MAX_SYMBOLS_PER_REQUEST)
+        ]
+
+        result = []
+        for chunk in symbol_chunks:
+            symbol_query_str = ",".join(chunk)
+            url = f"{self.base_url}/v1/market/quote/{symbol_query_str}"
+            headers = {"Accept": "application/json"}
+            params = {"detailFlag": detail_flag}
+            response = self.session.get(url, headers=headers, params=params)
+            response.raise_for_status()
+
+            result.extend(response.json()["QuoteResponse"]["QuoteData"])
+
+        return result
 
     def fetch_order_list(
         self,

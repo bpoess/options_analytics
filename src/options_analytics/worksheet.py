@@ -11,6 +11,7 @@ from pygsheets.worksheet import Worksheet as PygsheetsWorksheet
 from tqdm import tqdm
 
 from options_analytics.models import (
+    OptionPosition,
     OptionTransaction,
     TransactionCategory,
     TransactionKind,
@@ -22,7 +23,7 @@ logger.setLevel(logging.DEBUG)
 type TableRow = list[str]
 
 
-class WorksheetRow:
+class TrackerTabDataRow:
     # 0 Column A
     product_key: str = ""
     # 1 Column B
@@ -131,7 +132,7 @@ class WorksheetRow:
         self.transactions = transactions
 
     @classmethod
-    def from_transaction(cls, transaction: OptionTransaction) -> WorksheetRow:
+    def from_transaction(cls, transaction: OptionTransaction) -> TrackerTabDataRow:
 
         bought_sold = ""
         match transaction.kind:
@@ -163,7 +164,7 @@ class WorksheetRow:
         )
 
     @classmethod
-    def new_open(cls, row: WorksheetRow) -> WorksheetRow:
+    def new_open(cls, row: TrackerTabDataRow) -> TrackerTabDataRow:
         return cls(
             row.product_key,
             row.symbol,
@@ -182,7 +183,7 @@ class WorksheetRow:
         )
 
     @classmethod
-    def from_tracker_data(cls, data: list[Any]) -> WorksheetRow:
+    def from_tracker_data(cls, data: list[Any]) -> TrackerTabDataRow:
         row = cls(
             data[0],  # Product Key
             data[1],  # Stock Symbol
@@ -209,7 +210,7 @@ class WorksheetRow:
 
     def _format(self) -> str:
         return (
-            f"WorksheetRow({self.product_key}|{self.symbol}|{self.open_date}|"
+            f"TrackerTabDataRow({self.product_key}|{self.symbol}|{self.open_date}|"
             f"{self.expiry_date}|{self.call_put}|{self.bought_sold}|"
             f"{self.strike_price}|{self.premium}|{self.num_contracts}|"
             f"{self.open_fees}|{self.account}|{self.closing_fees}|{self.exit_price}|"
@@ -256,32 +257,24 @@ class WorksheetRow:
         ]
 
 
-class Worksheet:
-    rows: dict[int, WorksheetRow]
+class TrackerTab:
+    rows: dict[int, TrackerTabDataRow]
     next_empty_row: int
     _last_remote_row_with_data: int
-    _client: PygsheetsClient
-    _gsheet: PygsheetsSpreadsheet
     _tracker: PygsheetsWorksheet
     _product_key_to_row_num_index: dict[str, list[int]]
     _transactions_processed_index: dict[str, bool]
 
-    _TRACKER_TAB: str = "Puts/Calls"
+    _TRACKER_TAB_LABEL: str = "Puts/Calls"
 
-    def __init__(self, google_sheet_id: str):
-        logger.debug("Initializing sheet connection")
+    def __init__(self, gsheet: PygsheetsSpreadsheet):
+        logger.debug("Initializing tracker tab")
 
         self.rows = {}
         self._product_key_to_row_num_index = {}
         self._transactions_processed_index = {}
 
-        self._client = pygsheets.authorize(
-            client_secret="credentials.json",
-            scopes=["https://www.googleapis.com/auth/spreadsheets"],
-        )
-
-        self._gsheet = self._client.open_by_key(google_sheet_id)
-        self._tracker = self._gsheet.worksheet_by_title(Worksheet._TRACKER_TAB)
+        self._tracker = gsheet.worksheet_by_title(TrackerTab._TRACKER_TAB_LABEL)
 
         self.next_empty_row = (
             len(self._tracker.get_col(2, include_tailing_empty=False)) + 1
@@ -290,7 +283,7 @@ class Worksheet:
         self._build_product_key_index()
         self._build_transactions_processed_index()
 
-        logger.debug(f"Worksheet Init Complete next_row={self.next_empty_row}")
+        logger.debug(f"TrackerTab Init Complete next_row={self.next_empty_row}")
 
     def _build_product_key_index(self):
         header_rows = 1
@@ -378,12 +371,12 @@ class Worksheet:
                 self._tracker.update_values(f"A{batch_start}:AB{batch_end}", batch)
                 progress_bar.update(batch_end - batch_start + 1)
 
-    def _insert(self, row: WorksheetRow):
+    def _insert(self, row: TrackerTabDataRow):
         self.rows[self.next_empty_row] = row
         self.next_empty_row += 1
 
     def add(self, transaction: OptionTransaction):
-        self._insert(WorksheetRow.from_transaction(transaction))
+        self._insert(TrackerTabDataRow.from_transaction(transaction))
 
     def _fetch_rows_if_needed(self, product_key: str):
         """
@@ -398,11 +391,11 @@ class Worksheet:
             assert row_num <= self._last_remote_row_with_data
             assert isinstance(row_num, int)
             data = self._tracker.get_row(row_num)
-            self.rows[row_num] = WorksheetRow.from_tracker_data(data)
+            self.rows[row_num] = TrackerTabDataRow.from_tracker_data(data)
 
     def _find_rows_for(
         self, transaction: OptionTransaction
-    ) -> list[tuple[int, WorksheetRow]]:
+    ) -> list[tuple[int, TrackerTabDataRow]]:
         product_key = transaction.key
 
         self._fetch_rows_if_needed(product_key)
@@ -420,7 +413,7 @@ class Worksheet:
 
     def _update_row(
         self,
-        row: WorksheetRow,
+        row: TrackerTabDataRow,
         num_contracts_covered: Decimal,
         transaction: OptionTransaction,
         category: TransactionCategory,
@@ -435,7 +428,7 @@ class Worksheet:
             # Existing row contains the update
             row.num_contracts = f"{num_contracts_covered:, f}"
             # New row contains the remaining contracts
-            new_row = WorksheetRow.new_open(row)
+            new_row = TrackerTabDataRow.new_open(row)
             new_row.num_contracts = f"{num_contracts_left:,f}"
             new_row.roll_id = row.roll_id
             self._insert(new_row)
@@ -483,7 +476,7 @@ class Worksheet:
         self,
         transaction: OptionTransaction,
         category: TransactionCategory,
-        row_tuples: list[tuple[int, WorksheetRow]],
+        row_tuples: list[tuple[int, TrackerTabDataRow]],
     ) -> bool:
         transaction_num_contracts = transaction.quantity
 
@@ -528,3 +521,82 @@ class Worksheet:
 
     def __iter__(self):
         yield from sorted(self.rows.items(), key=lambda item: item[0])  # row_num
+
+
+class OpenPositionsTab:
+    """
+    Table Headers
+    =============
+    [A] Product
+    [B] Cost Basis
+    [C] Extrinsic
+    [D] Captured%
+    [E] Remaining Return
+    [F] Mark
+    [G] Days Left
+    [H] Intrinsic
+    [I] Updated On
+    """
+
+    _gtab: PygsheetsWorksheet
+
+    _LABEL = "Open Positions"
+
+    def __init__(self, gsheet: PygsheetsSpreadsheet):
+        self._gtab = gsheet.worksheet_by_title(OpenPositionsTab._LABEL)
+
+    def update_tab(self, positions: list[OptionPosition]):
+        _NUM_HEADER_ROWS = 1
+        _FIRST_DATA_ROW = _NUM_HEADER_ROWS + 1
+
+        if len(positions) == 0:
+            return
+
+        positions.sort(key=lambda v: v.remaining_annualized)
+
+        current_row = _FIRST_DATA_ROW
+        batch = []
+        for position in positions:
+            if position.quote is not None:
+                batch.append(
+                    [
+                        position.product_key,
+                        f"{position.cost_basis:f}",
+                        f"=MAX(0, F{current_row}-H{current_row})",
+                        (f"=MAX(0, B{current_row} - F{current_row}) / B{current_row}"),
+                        (
+                            f"=(MIN(F{current_row}, B{current_row}) / "
+                            f"({position.strike_price:f} * G{current_row})) "
+                            f"* 365"
+                        ),
+                        f"{position.quote.mark:f}",
+                        position.quote.days_to_expiration,
+                        f"{position.quote.intrinsic:f}",
+                        position.quote.date.isoformat(),
+                    ]
+                )
+                current_row += 1
+
+        if len(batch) > 0:
+            self._gtab.update_values(f"A{_FIRST_DATA_ROW}:", batch)
+            if self._gtab.rows >= current_row:
+                self._gtab.clear(start=f"A{current_row}")
+
+
+class Worksheet:
+    _client: PygsheetsClient
+    _gsheet: PygsheetsSpreadsheet
+
+    def __init__(self, google_sheet_id: str):
+        self._client = pygsheets.authorize(
+            client_secret="credentials.json",
+            scopes=["https://www.googleapis.com/auth/spreadsheets"],
+        )
+
+        self._gsheet = self._client.open_by_key(google_sheet_id)
+
+    def open_tracker_tab(self) -> TrackerTab:
+        return TrackerTab(self._gsheet)
+
+    def open_positions_tab(self) -> OpenPositionsTab:
+        return OpenPositionsTab(self._gsheet)

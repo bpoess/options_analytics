@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Annotated, Any
 
@@ -16,6 +16,9 @@ from pydantic.alias_generators import to_camel
 TransactionId = Annotated[str, BeforeValidator(lambda v: str(v))]
 DateTimeFromMs = Annotated[
     datetime, BeforeValidator(lambda v: datetime.fromtimestamp(v / 1000.0))
+]
+DateTimeUtcFromS = Annotated[
+    datetime, BeforeValidator(lambda v: datetime.fromtimestamp(v, UTC))
 ]
 DecimalAmount = Annotated[
     Decimal, BeforeValidator(lambda v: Decimal(str(v)).normalize())
@@ -104,7 +107,24 @@ class Product(BaseModel):
         if self.call_put is None or self.strike_price is None:
             return "[Unidentified]"
 
-        return f"{self.symbol}{self.expiry_date}{self.call_put}{self.strike_price:f}"
+        return (
+            f"{self.symbol}"
+            f"{self.expiry_date}"
+            f"{self.call_put.upper()}"
+            f"{self.strike_price:f}"
+        )
+
+    @property
+    def quote_key(self) -> str:
+        assert self.call_put
+        return (
+            f"{self.symbol}:"
+            f"{self.expiry_year:04d}:"
+            f"{self.expiry_month:02d}:"
+            f"{self.expiry_day:02d}:"
+            f"{self.call_put.upper()}:"
+            f"{self.strike_price:f}"
+        )
 
 
 class Brokerage(BaseModel):
@@ -262,3 +282,65 @@ class ExecutedOrder(BaseModel):
 
     def __hash__(self):
         return hash(self.id)
+
+
+class CompleteView(BaseModel):
+    """
+    Source
+    https://apisb.etrade.com/docs/api/account/api-portfolio-v1.html#/definitions/CompleteView
+    """
+
+    model_config = ConfigDict(alias_generator=to_camel, strict=True)
+
+
+class Position(BaseModel):
+    """
+    Source
+    https://apisb.etrade.com/docs/api/account/api-portfolio-v1.html#/definitions/Position
+    """
+
+    model_config = ConfigDict(alias_generator=to_camel, strict=True)
+
+    id: str = Field(alias="positionId")
+    product: Product = Field(alias="Product")
+    date_acquired: DateTimeFromMs
+    price_paid: DecimalAmount
+    commissions: DecimalAmount
+    other_fees: DecimalAmount
+    cost_per_share: DecimalAmount
+    lot_detail_url: str = Field(alias="lotsDetails")
+    quote_detail_url: str = Field(alias="quoteDetails")
+    complete_view: CompleteView | None = Field(alias="Complete", default=None)
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def int_to_str(cls, v: Any):
+        if isinstance(v, int):
+            return str(v)
+        return v
+
+
+class OptionQuoteDetails(BaseModel):
+    """
+    Source
+    https://apisb.etrade.com/docs/api/market/api-quote-v1.html#/definitions/OptionQuoteDetails
+    """
+
+    model_config = ConfigDict(alias_generator=to_camel, strict=True)
+
+    bid: DecimalAmount
+    days_to_expiration: int
+    intrinsic_value: DecimalAmount
+
+
+class Quote(BaseModel):
+    """
+    Source
+    https://apisb.etrade.com/docs/api/market/api-quote-v1.html#/definitions/QuoteData
+    """
+
+    model_config = ConfigDict(alias_generator=to_camel, strict=True)
+
+    product: Product = Field(alias="Product")
+    option_details: OptionQuoteDetails | None = Field(alias="Option", default=None)
+    date_time: DateTimeUtcFromS = Field(alias="dateTimeUTC")

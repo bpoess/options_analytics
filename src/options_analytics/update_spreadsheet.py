@@ -21,7 +21,7 @@ from options_analytics.models import (
     TransactionCategory,
     TransactionKind,
 )
-from options_analytics.worksheet import Worksheet
+from options_analytics.worksheet import TrackerTab, Worksheet
 
 CURRENT_DATE = datetime.now()
 SEVEN_DAYS_AGO = CURRENT_DATE - timedelta(days=7)
@@ -124,7 +124,7 @@ class OptionTransactionsProcessor:
     _start_date: str
     _end_date: str
     _config: Config
-    _worksheet: Worksheet
+    _tracker_tab: TrackerTab
     _etrade_repository: etrade.Repository
     _transaction_repository: TransactionRepository
 
@@ -137,7 +137,8 @@ class OptionTransactionsProcessor:
         logger.debug(f"startdate {self._start_date}, enddate {self._end_date}")
         self._etrade_repository = etrade.Repository(config.etrade, json_data)
 
-        self._worksheet = Worksheet(args.google_sheet_id)
+        worksheet = Worksheet(args.google_sheet_id)
+        self._tracker_tab = worksheet.open_tracker_tab()
 
     def fetch_data(self):
         transactions = [
@@ -145,7 +146,7 @@ class OptionTransactionsProcessor:
             for transaction in self._etrade_repository.list_option_transactions(
                 self._start_date, self._end_date
             )
-            if not self._worksheet.has_transaction_been_processed(transaction.id)
+            if not self._tracker_tab.has_transaction_been_processed(transaction.id)
         ]
         self._transaction_repository = TransactionRepository(transactions)
 
@@ -200,7 +201,7 @@ class OptionTransactionsProcessor:
                 f"{transaction}"
             )
 
-    def generate_worksheet_updates(self):
+    def generate_tracker_tab_updates(self):
         if len(self._transaction_repository.transactions) == 0:
             print("No new transactions to process")
             return
@@ -215,14 +216,14 @@ class OptionTransactionsProcessor:
                 category = transaction.category
                 logger.debug(f"C {category} T {transaction}")
                 if category == TransactionCategory.OPEN:
-                    self._worksheet.add(transaction)
+                    self._tracker_tab.add(transaction)
                 elif (
                     category == TransactionCategory.CLOSED_EARLY
                     or category == TransactionCategory.ROLL
                     or category == TransactionCategory.ASSIGNED
                     or category == TransactionCategory.EXPIRED
                 ):
-                    success = self._worksheet.update(transaction, category)
+                    success = self._tracker_tab.update(transaction, category)
                     if not success:
                         logger.debug(
                             f"Unable to update sheet for {transaction} {category}"
@@ -240,8 +241,8 @@ class OptionTransactionsProcessor:
                 print(transaction.format_for_script_output())
                 logger.debug(transaction)
 
-    def upload_worksheet_changes(self):
-        self._worksheet.upload_changes()
+    def upload_tracker_tab_changes(self):
+        self._tracker_tab.upload_changes()
 
 
 def lookup_user_data(json_data: dict, username: str) -> dict | None:
@@ -263,8 +264,8 @@ def main() -> int:
 
     processor.fetch_data()
     processor.classify_transactions()
-    processor.generate_worksheet_updates()
-    processor.upload_worksheet_changes()
+    processor.generate_tracker_tab_updates()
+    processor.upload_tracker_tab_changes()
 
     return 0
 
