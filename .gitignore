@@ -10,3 +10,5 @@ brokerage.db
 scratch/
 build/
 dist/
+CLAUDE.md
+src/my_little_etrade_server/generated/my_little_etrade_server_pb2*

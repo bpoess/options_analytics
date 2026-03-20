@@ -12,7 +12,8 @@ from datetime import datetime, timedelta
 
 from tqdm import tqdm
 
-from options_analytics.clients.etrade.client import ETradeClient
+from etrade_client.client import ETradeClient
+from options_analytics.auth import ensure_authenticated
 from options_analytics.config import Config
 
 # Constants
@@ -80,6 +81,7 @@ def fetch_data(
     client = ETradeClient(
         config.etrade.key.api, config.etrade.key.secret, sandbox=False
     )
+    ensure_authenticated(client)
 
     json_data["Accounts"] = []
     json_data["OrderList"] = {}

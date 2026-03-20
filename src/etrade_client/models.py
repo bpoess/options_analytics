@@ -42,8 +42,15 @@ class Account(BaseModel):
     type: str = Field(alias="accountType")
     institution_type: str
     status: str = Field(alias="accountStatus")
-    closed_date: DateTimeFromMs
+    closed_date: DateTimeFromMs | None = None
     share_works_account: bool
+
+    @field_validator("closed_date", mode="before")
+    @classmethod
+    def zero_closed_date_to_none(cls, v: Any):
+        if v == 0:
+            return None
+        return v
     share_works_source: str | None = None
     fc_managed_mssb_closed_account: bool
 

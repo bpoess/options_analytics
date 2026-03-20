@@ -2,8 +2,8 @@ import logging
 
 from tqdm import tqdm
 
-from options_analytics.clients.etrade import models as etrade_models
-from options_analytics.clients.etrade.cache_client import ETradeCachedClient
+from etrade_client import models as etrade_models
+from etrade_client.cache_client import ETradeCachedClient
 from options_analytics.config import ETradeConfig
 from options_analytics.models import CallOrPut, OptionTransaction, TransactionKind
 
@@ -35,6 +35,10 @@ class Repository:
             self._config.key.secret,
             json_data,
         )
+
+    @property
+    def client(self) -> ETradeCachedClient:
+        return self._client
 
     def _fetch_accounts(self):
         accounts = self._client.fetch_accounts()

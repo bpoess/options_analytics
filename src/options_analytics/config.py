@@ -16,9 +16,14 @@ class KeyConfig(BaseModel):
     secret: str
 
 
+class ProxyConfig(BaseModel):
+    port: int = 38710
+
+
 class ETradeConfig(BaseModel):
     accounts: list[Account]
     key: KeyConfig
+    proxy: ProxyConfig = ProxyConfig()
 
     def find_account_by_id(self, account_id: str) -> Account | None:
         for account in self.accounts:

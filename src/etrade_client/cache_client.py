@@ -6,7 +6,7 @@ from pprint import pformat
 from typing import Any
 from urllib.parse import urlsplit
 
-from options_analytics.clients.etrade.client import ETradeClient
+from etrade_client.client import ETradeClient
 
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
@@ -37,11 +37,26 @@ class ETradeCachedClient:
         sandbox: bool = False,
     ):
         if not cache_data:
-            self._client = ETradeClient(consumer_key, consumer_secret, sandbox)
+            self._client = ETradeClient(consumer_key, consumer_secret, sandbox=sandbox)
             self._cached = False
         else:
             self._cached = True
             self._json_data = cache_data
+
+    def is_authenticated(self) -> bool:
+        if self._cached:
+            return True
+        return self._client.is_authenticated()
+
+    def get_authorization_url(self) -> str:
+        if self._cached:
+            raise RuntimeError("Cached client does not require authorization")
+        return self._client.get_authorization_url()
+
+    def complete_authorization(self, verification_code: str) -> None:
+        if self._cached:
+            raise RuntimeError("Cached client does not require authorization")
+        self._client.complete_authorization(verification_code)
 
     def fetch_accounts(self) -> list[dict[str, Any]]:
         if self._cached:

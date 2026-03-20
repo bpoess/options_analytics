@@ -1,0 +1,475 @@
+syntax = "proto3";
+
+package etrade;
+
+import "google/protobuf/timestamp.proto";
+import "google/type/decimal.proto";
+
+// Service definition
+
+service ProxyService {
+  rpc GetAuthenticationStatus(GetAuthenticationStatusRequest) returns (GetAuthenticationStatusResponse);
+  rpc GetAuthorizationUrl(GetAuthorizationUrlRequest) returns (GetAuthorizationUrlResponse);
+  rpc CompleteAuthorization(CompleteAuthorizationRequest) returns (CompleteAuthorizationResponse);
+  rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse);
+  rpc ListPositions(ListPositionsRequest) returns (stream Position);
+  rpc ListQuotes(ListQuotesRequest) returns (stream Quote);
+  rpc ListOrders(ListOrdersRequest) returns (stream Order);
+  rpc GetOrderDetails(GetOrderDetailsRequest) returns (GetOrderDetailsResponse);
+  rpc ListTransactions(ListTransactionsRequest) returns (stream Transaction);
+  rpc GetTransactionDetails(GetTransactionDetailsRequest) returns (GetTransactionDetailsResponse);
+  rpc GetOptionChains(GetOptionChainsRequest) returns (GetOptionChainsResponse);
+  rpc GetOptionExpireDates(GetOptionExpireDatesRequest) returns (GetOptionExpireDatesResponse);
+}
+
+// Authentication messages
+
+message GetAuthenticationStatusRequest {}
+message GetAuthenticationStatusResponse {
+  bool is_authenticated = 1;
+}
+
+message GetAuthorizationUrlRequest {}
+message GetAuthorizationUrlResponse {
+  string url = 1;
+}
+
+message CompleteAuthorizationRequest {
+  string verification_code = 1;
+}
+message CompleteAuthorizationResponse {}
+
+// Request messages
+
+message ListAccountsRequest {}
+
+message ListPositionsRequest {
+  string account_id_key = 1;
+  optional string view = 2;
+}
+
+message ListQuotesRequest {
+  repeated string symbols = 1;
+  optional string detail_flag = 2;
+}
+
+message ListOrdersRequest {
+  string account_id_key = 1;
+  string start_date = 2;  // MMDDYYYY format
+  string end_date = 3;    // MMDDYYYY format
+  optional string status = 4;
+}
+
+message GetOrderDetailsRequest {
+  string details_url = 1;
+}
+
+message ListTransactionsRequest {
+  string account_id_key = 1;
+  string start_date = 2;  // MMDDYYYY format
+  string end_date = 3;    // MMDDYYYY format
+}
+
+message GetTransactionDetailsRequest {
+  string account_id_key = 1;
+  string transaction_id = 2;
+}
+
+message GetOptionExpireDatesRequest {
+  string symbol = 1;
+  optional string expiry_type = 2;
+}
+
+message GetOptionExpireDatesResponse {
+  repeated ExpirationDate dates = 1; // Raw field name expirationDate
+}
+
+message GetOptionChainsRequest {
+  string symbol = 1;
+  optional int32 expiry_year = 2;
+  optional int32 expiry_month = 3;
+  optional int32 expiry_day = 4;
+  optional int32 strike_price_near = 5;
+  optional int32 no_of_strikes = 6;
+  optional bool include_weekly = 7;
+  optional bool skip_adjusted = 8;
+  optional string option_category = 9;
+  optional string chain_type = 10;
+  optional string price_type = 11;
+}
+
+// Response messages
+
+message ListAccountsResponse {
+  repeated Account accounts = 1;
+}
+
+message GetOrderDetailsResponse {
+  repeated Order orders = 1;
+}
+
+message GetTransactionDetailsResponse {
+  Transaction transaction = 1;
+}
+
+message GetOptionChainsResponse {
+  google.type.Decimal near_price = 1;
+  repeated OptionPair option_pair = 2;
+  string quote_type = 3;
+  SelectedEd selected_ed = 4;
+  google.protobuf.Timestamp time_stamp = 5;
+}
+
+// Domain messages
+
+message Account {
+  string account_id = 1;
+  string account_id_key = 2;
+  string account_name = 3;
+  string account_type = 4;
+  string institution_type = 5;
+  string account_status = 6;
+  optional google.protobuf.Timestamp closed_date = 7;
+  string account_mode = 8;
+  optional string account_desk = 9;
+  optional int32 inst_no = 10;
+  bool share_works_account = 11;
+  optional string share_works_source = 12;
+  bool fc_managed_mssb_closed_account = 13;
+}
+
+message ProductId {
+  string symbol = 1;
+  string type_code = 2;
+}
+
+message Product {
+  string symbol = 1;
+  optional string security_type = 2;
+  optional string security_sub_type = 3;
+  optional string call_put = 4;
+  optional int32 expiry_year = 5;
+  optional int32 expiry_month = 6;
+  optional int32 expiry_day = 7;
+  optional google.type.Decimal strike_price = 8;
+  optional string expiry_type = 9;
+  optional ProductId product_id = 10;
+}
+
+message PositionCompleteView {
+  google.type.Decimal adj_last_trade = 1;
+  google.type.Decimal adj_prev_close = 2;
+  google.type.Decimal adj_price = 3;
+  google.type.Decimal annual_dividend = 4;
+  google.type.Decimal ask = 5;
+  int64 ask_size = 6;
+  string base_symbol_and_price = 7;
+  google.type.Decimal beta = 8;
+  google.type.Decimal bid = 9;
+  google.type.Decimal bid_ask_spread = 10;
+  int64 bid_size = 11;
+  google.type.Decimal change = 12;
+  google.type.Decimal change_pct = 13;
+  string currency = 14;
+  string cusip = 15;
+  string days_range = 16;
+  string deliverables_str = 17;
+  google.type.Decimal delta = 18;
+  google.type.Decimal delta52_wk_high = 19;
+  google.type.Decimal delta52_wk_low = 20;
+  google.type.Decimal div_yield = 21;
+  google.type.Decimal dividend = 22;
+  google.type.Decimal eps = 23;
+  string exchange = 24;
+  google.type.Decimal gamma = 25;
+  google.type.Decimal intrinsic_value = 26;
+  google.type.Decimal iv_pct = 27;
+  google.type.Decimal last_trade = 28;
+  google.protobuf.Timestamp last_trade_time = 29;
+  bool marginable = 30;
+  google.type.Decimal market_cap = 31;
+  google.type.Decimal open = 32;
+  google.type.Decimal open_interest = 33;
+  google.type.Decimal option_multiplier = 34;
+  bool options_adjusted_flag = 35;
+  google.type.Decimal pe_ratio = 36;
+  google.type.Decimal premium = 37;
+  google.type.Decimal prev_close = 38;
+  google.type.Decimal price = 39;
+  bool price_adjusted_flag = 40;
+  string quote_status = 41;
+  google.type.Decimal rho = 42;
+  google.type.Decimal sv10_days_avg = 43;
+  google.type.Decimal sv1_mon_avg = 44;
+  google.type.Decimal sv20_days_avg = 45;
+  google.type.Decimal sv2_mon_avg = 46;
+  google.type.Decimal sv3_mon_avg = 47;
+  google.type.Decimal sv4_mon_avg = 48;
+  google.type.Decimal sv6_mon_avg = 49;
+  string symbol_description = 50;
+  int64 ten_day_volume = 51;
+  google.type.Decimal theta = 52;
+  google.type.Decimal vega = 53;
+  google.type.Decimal volume = 54;
+  google.type.Decimal week52_high = 55;
+  google.type.Decimal week52_low = 56;
+  string week52_range = 57;
+  optional int64 days_to_expiration = 58;
+  optional google.protobuf.Timestamp div_pay_date = 59;
+  optional google.type.Decimal est_earnings = 60;
+  optional google.protobuf.Timestamp ex_dividend_date = 61;
+  optional google.type.Decimal perform12_month = 62;
+  optional google.type.Decimal perform1_month = 63;
+  optional google.type.Decimal perform3_month = 64;
+  optional google.type.Decimal perform6_month = 65;
+  optional google.type.Decimal prev_day_volume = 66;
+}
+
+message PositionQuickView {
+  google.type.Decimal change = 1;
+  google.type.Decimal change_pct = 2;
+  google.type.Decimal last_trade = 3;
+  google.protobuf.Timestamp last_trade_time = 4;
+  string quote_status = 5;
+  google.type.Decimal volume = 6;
+}
+
+message Position {
+  google.type.Decimal adj_prev_close = 1;
+  google.type.Decimal commissions = 2;
+  google.type.Decimal cost_per_share = 3;
+  google.protobuf.Timestamp date_acquired = 4;
+  google.type.Decimal days_gain = 5;
+  google.type.Decimal days_gain_pct = 6;
+  string lot_detail_url = 7;
+  google.type.Decimal market_value = 8;
+  google.type.Decimal other_fees = 9;
+  google.type.Decimal pct_of_portfolio = 10;
+  string position_id = 11;
+  string position_indicator = 12;
+  string position_type = 13;
+  google.type.Decimal price_paid = 14;
+  Product product = 15;
+  google.type.Decimal quantity = 16;
+  string quote_detail_url = 17;
+  string symbol_description = 18;
+  google.type.Decimal today_commissions = 19;
+  google.type.Decimal today_fees = 20;
+  google.type.Decimal today_price_paid = 21;
+  google.type.Decimal today_quantity = 22;
+  google.type.Decimal total_cost = 23;
+  google.type.Decimal total_gain = 24;
+  google.type.Decimal total_gain_pct = 25;
+  optional PositionCompleteView complete = 26;
+  optional string osi_key = 27;
+  optional PositionQuickView quick = 28;
+}
+
+message QuoteAllDetail {
+  bool adjusted_flag = 1;
+  google.type.Decimal ask = 2;
+  int64 ask_size = 3;
+  string ask_time = 4;
+  google.type.Decimal average_volume = 5;
+  google.type.Decimal beta = 6;
+  google.type.Decimal bid = 7;
+  string bid_exchange = 8;
+  int64 bid_size = 9;
+  string bid_time = 10;
+  google.type.Decimal cash_deliverable = 11;
+  google.type.Decimal change_close = 12;
+  google.type.Decimal change_close_percentage = 13;
+  string company_name = 14;
+  google.type.Decimal contract_size = 15;
+  int64 days_to_expiration = 16;
+  google.type.Decimal declared_dividend = 17;
+  string dir_last = 18;
+  google.type.Decimal dividend = 19;
+  google.protobuf.Timestamp dividend_payable_date = 20;
+  google.type.Decimal eps = 21;
+  google.type.Decimal est_earnings = 22;
+  google.protobuf.Timestamp ex_dividend_date = 23;
+  google.protobuf.Timestamp expiration_date = 24;
+  google.type.Decimal high = 25;
+  google.type.Decimal high52 = 26;
+  google.type.Decimal intrinsic_value = 27;
+  google.type.Decimal last_trade = 28;
+  google.type.Decimal low = 29;
+  google.type.Decimal low52 = 30;
+  google.type.Decimal market_cap = 31;
+  string next_earning_date = 32;
+  google.type.Decimal open = 33;
+  int64 open_interest = 34;
+  google.type.Decimal option_multiplier = 35;
+  string option_style = 36;
+  string option_underlier = 37;
+  google.type.Decimal pe = 38;
+  google.type.Decimal previous_close = 39;
+  int64 previous_day_volume = 40;
+  string primary_exchange = 41;
+  google.type.Decimal shares_outstanding = 42;
+  string symbol_description = 43;
+  google.protobuf.Timestamp time_of_last_trade = 44;
+  google.type.Decimal time_premium = 45;
+  google.type.Decimal total_volume = 46;
+  int64 upc = 47;
+  google.protobuf.Timestamp week52_hi_date = 48;
+  google.protobuf.Timestamp week52_low_date = 49;
+  google.type.Decimal yield = 50;
+  optional google.type.Decimal option_previous_ask_price = 51;
+  optional google.type.Decimal option_previous_bid_price = 52;
+  optional string option_underlier_exchange = 53;
+  optional string osi_key = 54;
+}
+
+message QuoteOptionDetail {
+  google.type.Decimal ask = 1;
+  int64 ask_size = 2;
+  google.type.Decimal bid = 3;
+  int64 bid_size = 4;
+  string company_name = 5;
+  google.type.Decimal contract_size = 6;
+  int64 days_to_expiration = 7;
+  google.type.Decimal intrinsic_value = 8;
+  google.type.Decimal last_trade = 9;
+  int64 open_interest = 10;
+  google.type.Decimal option_multiplier = 11;
+  google.type.Decimal option_previous_ask_price = 12;
+  google.type.Decimal option_previous_bid_price = 13;
+  string osi_key = 14;
+  string symbol_description = 15;
+  google.type.Decimal time_premium = 16;
+  optional OptionGreeks option_greeks = 17;
+}
+
+message OptionGreeks {
+  bool current_value = 1;
+  google.type.Decimal delta = 2;
+  google.type.Decimal gamma = 3;
+  google.type.Decimal iv = 4;
+  google.type.Decimal rho = 5;
+  google.type.Decimal theta = 6;
+  google.type.Decimal vega = 7;
+}
+
+message Quote {
+  string ah_flag = 1;
+  google.protobuf.Timestamp date_time = 2;
+  Product product = 4;
+  string quote_status = 5;
+  optional QuoteAllDetail all = 6;
+  optional bool has_mini_options = 7;
+  optional QuoteOptionDetail option = 8;
+}
+
+message Instrument {
+  Product product = 1;
+  string order_action = 2;
+  google.type.Decimal ordered_quantity = 3;
+  string quantity_type = 4;
+  optional google.type.Decimal average_execution_price = 5;
+  google.type.Decimal estimated_commission = 6;
+  google.type.Decimal estimated_fees = 7;
+  google.type.Decimal filled_quantity = 8;
+  string symbol_description = 9;
+}
+
+message OrderEvent {
+  string name = 1;
+  google.protobuf.Timestamp date_time = 2;
+  repeated Instrument instruments = 3;
+}
+
+message Order {
+  string order_id = 1;
+  optional string order_type = 2;
+  google.protobuf.Timestamp executed_time = 3;
+  string status = 4;
+  repeated OrderEvent events = 5;
+  string details_url = 6;
+}
+
+message Brokerage {
+  string transaction_type = 1;
+  optional Product product = 2;
+  google.type.Decimal quantity = 3;
+  google.type.Decimal price = 4;
+  string settlement_currency = 5;
+  string payment_currency = 6;
+  google.type.Decimal fee = 7;
+  optional string order_no = 8;
+}
+
+message Transaction {
+  string transaction_id = 1;
+  string account_id = 2;
+  google.protobuf.Timestamp transaction_date = 3;
+  optional google.protobuf.Timestamp post_date = 4;
+  google.type.Decimal amount = 5;
+  string description = 6;
+  Brokerage brokerage = 7;
+}
+
+message OptionPair {
+  Call call = 1;
+  Put put = 2;
+}
+
+message Call {
+  bool adjusted_flag = 1;
+  google.type.Decimal ask = 2;
+  int64 ask_size = 3;
+  google.type.Decimal bid = 4;
+  int64 bid_size = 5;
+  string display_symbol = 6;
+  string in_the_money = 7;
+  google.type.Decimal last_price = 8;
+  google.type.Decimal net_change = 9;
+  int64 open_interest = 10;
+  string option_category = 11;
+  OptionGreeks option_greeks = 12;
+  string option_root_symbol = 13;
+  string option_type = 14;
+  string osi_key = 15;
+  string quote_detail = 16;
+  google.type.Decimal strike_price = 17;
+  string symbol = 18;
+  google.protobuf.Timestamp time_stamp = 19;
+  int64 volume = 20;
+}
+
+message Put {
+  bool adjusted_flag = 1;
+  google.type.Decimal ask = 2;
+  int64 ask_size = 3;
+  google.type.Decimal bid = 4;
+  int64 bid_size = 5;
+  string display_symbol = 6;
+  string in_the_money = 7;
+  google.type.Decimal last_price = 8;
+  google.type.Decimal net_change = 9;
+  int64 open_interest = 10;
+  string option_category = 11;
+  OptionGreeks option_greeks = 12;
+  string option_root_symbol = 13;
+  string option_type = 14;
+  string osi_key = 15;
+  string quote_detail = 16;
+  google.type.Decimal strike_price = 17;
+  string symbol = 18;
+  google.protobuf.Timestamp time_stamp = 19;
+  int64 volume = 20;
+}
+
+message SelectedEd {
+  int64 day = 1;
+  int64 month = 2;
+  int64 year = 3;
+}
+
+message ExpirationDate {
+  int64 day = 1;
+  string expiry_type = 2;
+  int64 month = 3;
+  int64 year = 4;
+}

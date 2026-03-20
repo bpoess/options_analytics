@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 from tqdm import tqdm
 
 import options_analytics.etrade as etrade
+from options_analytics.auth import ensure_authenticated
 from options_analytics.config import Config
 from options_analytics.models import (
     OptionTransaction,
@@ -143,6 +144,10 @@ class OptionTransactionsProcessor:
         worksheet = Worksheet(args.google_sheet_id)
         self._tracker_tab = worksheet.open_tracker_tab()
 
+    @property
+    def etrade_client(self) -> etrade.ETradeCachedClient:
+        return self._etrade_repository.client
+
     def fetch_data(self):
         transactions = [
             transaction
@@ -264,6 +269,7 @@ def main() -> int:
             raise Exception(f"Unsupported cache data version {json_data['version']}")
 
     processor = OptionTransactionsProcessor(args, config, json_data)
+    ensure_authenticated(processor.etrade_client)
 
     processor.fetch_data()
     processor.classify_transactions()

@@ -12,8 +12,9 @@ import time
 from datetime import datetime
 from pprint import pformat
 
-from options_analytics.clients.etrade import models as etrade_models
-from options_analytics.clients.etrade.client import ETradeClient
+from etrade_client import models as etrade_models
+from etrade_client.client import ETradeClient
+from options_analytics.auth import ensure_authenticated
 from options_analytics.config import Config
 from options_analytics.models import CallOrPut, OptionPosition, OptionQuote
 from options_analytics.worksheet import Worksheet
@@ -164,6 +165,7 @@ def main() -> int:
     config = Config.from_file("config.toml")
 
     client = ETradeClient(config.etrade.key.api, config.etrade.key.secret)
+    ensure_authenticated(client)
 
     accounts = []
     etrade_accounts = client.fetch_accounts()

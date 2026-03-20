@@ -12,8 +12,9 @@ import logging.handlers
 from datetime import datetime, timedelta
 from typing import NamedTuple
 
-from options_analytics.clients.etrade.cache_client import ETradeCachedClient
-from options_analytics.clients.etrade.models import Account, Transaction
+from etrade_client.cache_client import ETradeCachedClient
+from etrade_client.models import Account, Transaction
+from options_analytics.auth import ensure_authenticated
 from options_analytics.config import Config
 
 current_date = datetime.now()
@@ -385,6 +386,7 @@ def main() -> int:
     client = ETradeCachedClient(
         config.etrade.key.api, config.etrade.key.secret, json_data
     )
+    ensure_authenticated(client)
 
     accounts = get_accounts(client, config)
     for account in accounts:

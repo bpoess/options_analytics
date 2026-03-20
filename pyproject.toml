@@ -9,10 +9,18 @@ description = "Tools for options data gathering and analytics"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "googleapis-common-protos>=1.72.0",
+    "grpcio>=1.70.0",
+    "grpcio-reflection>=1.70.0",
     "pydantic>=2.12.5",
+    "protobuf>=5.29.0",
     "pygsheets>=2.0.6",
     "pytz>=2026.1.post1",
+    "oauthlib>=3.2.0",
+    "requests>=2.31.0",
     "tqdm>=4.67.3",
+    "httpx>=0.28.1",
+    "aiofiles>=25.1.0",
 ]
 
 [project.scripts]
@@ -21,9 +29,11 @@ get_transactions = "options_analytics.get_transactions:main"
 update_spreadsheet = "options_analytics.update_spreadsheet:main"
 setup_config = "options_analytics.setup_config:main"
 update_open_positions = "options_analytics.update_open_positions:main"
+my_little_etrade_server = "my_little_etrade_server.server:main"
 
 [dependency-groups]
 dev = [
+    "grpcio-tools>=1.70.0",
     "pyinstaller>=6.19.0",
     "pyright>=1.1.408",
     "ruff>=0.15.4",
@@ -34,7 +44,7 @@ venvPath = "."
 venv = ".venv"
 pythonVersion = "3.13"
 include = ["src"]
-exclude = ["**/__pycache__", "build", "dist", ".venv"]
+exclude = ["**/__pycache__", "build", "dist", ".venv", "src/my_little_etrade_server/generated"]
 typeCheckingMode = "standard"
 useLibraryCodeForTypes = true
 reportMissingImports = "error"

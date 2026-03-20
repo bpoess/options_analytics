@@ -166,12 +166,46 @@ exe_update_open_positions = EXE(
     entitlements_file=None,
 )
 
+analysis_my_little_etrade_server = Analysis(
+    ['src/my_little_etrade_server/server.py'],
+    pathex=[],
+    binaries=[],
+    datas=[],
+    hiddenimports=[],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    noarchive=False,
+    optimize=0,
+)
+pyz_my_little_etrade_server = PYZ(analysis_my_little_etrade_server.pure)
+
+exe_my_little_etrade_server = EXE(
+    pyz_my_little_etrade_server,
+    analysis_my_little_etrade_server.scripts,
+    [],
+    exclude_binaries=True,
+    name='options_analytics.my_little_etrade_server',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    console=True,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+
 coll = COLLECT(
     exe_get_transactions, analysis_get_transactions.binaries, analysis_get_transactions.datas,
     exe_update_spreadsheet, analysis_update_spreadsheet.binaries, analysis_update_spreadsheet.datas,
     exe_fetch_data, analysis_fetch_data.binaries, analysis_fetch_data.datas,
     exe_setup_config, analysis_setup_config.binaries, analysis_setup_config.datas,
     exe_update_open_positions, analysis_update_open_positions.binaries, analysis_update_open_positions.datas,
+    exe_my_little_etrade_server, analysis_my_little_etrade_server.binaries, analysis_my_little_etrade_server.datas,
     strip=False,
     upx=True,
     upx_exclude=[],
