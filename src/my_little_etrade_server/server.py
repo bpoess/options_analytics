@@ -20,7 +20,7 @@ from grpc import aio
 from grpc_reflection.v1alpha import reflection
 
 from etrade_client.async_client import AsyncETradeClient
-from etrade_client.exceptions import AuthenticationRequired
+from etrade_client.exceptions import AuthenticationRequired, Timeout
 from my_little_etrade_server.converters import (
     ConversionError,
     dict_to_account,
@@ -43,7 +43,8 @@ logger: logging.Logger
 def configure_logging(args: argparse.Namespace) -> None:
     root_logger = logging.getLogger()
     formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        "%(asctime)s %(name)s %(filename)s:%(lineno)d "
+        "%(funcName)s %(levelname)s - %(message)s"
     )
 
     ch = logging.StreamHandler()
@@ -104,6 +105,12 @@ class ProxyServicer(my_little_etrade_server_pb2_grpc.ProxyServiceServicer):
             await context.abort(
                 grpc.StatusCode.UNAUTHENTICATED,
                 "OAuth session expired or revoked",
+            )
+        except Timeout as err:
+            logger.info(f"Timeout waiting for request to complete {err}")
+            await context.abort(
+                grpc.StatusCode.DEADLINE_EXCEEDED,
+                "Request to E*Trade backend timed out",
             )
         except httpx.HTTPStatusError as err:
             logger.error(f"E*Trade API error: {err}")
@@ -215,18 +222,40 @@ class ProxyServicer(my_little_etrade_server_pb2_grpc.ProxyServiceServicer):
                 grpc.StatusCode.INVALID_ARGUMENT,
                 "symbols is required",
             )
-        logger.info(f"ListQuotes called for {len(request.symbols)} symbols")
+        logger.debug(f"ListQuotes called for {len(request.symbols)} symbols")
         detail_flag = request.detail_flag if request.HasField("detail_flag") else None
-        quotes_data = await self._call(
-            context,
-            self._client.fetch_quotes_for(list(request.symbols), detail_flag),
-        )
-        for raw in quotes_data:
-            logger.debug(f"Raw Quote JSON: {json.dumps(raw)}")
-            try:
-                yield dict_to_quote(raw)
-            except ConversionError as err:
-                await self._abort_conversion_error(context, err)
+        try:
+            async for raw in self._client.stream_quotes_for(
+                list(request.symbols), detail_flag
+            ):
+                try:
+                    yield dict_to_quote(raw)
+                except ConversionError as err:
+                    await self._abort_conversion_error(context, err)
+        except AuthenticationRequired:
+            logger.info("OAuth session expired or revoked")
+            await context.abort(
+                grpc.StatusCode.UNAUTHENTICATED,
+                "OAuth session expired or revoked",
+            )
+        except Timeout as err:
+            logger.info(f"Timeout waiting for request to complete {err}")
+            await context.abort(
+                grpc.StatusCode.DEADLINE_EXCEEDED,
+                "Request to E*Trade backend timed out",
+            )
+        except httpx.HTTPStatusError as err:
+            logger.error(f"E*Trade API error: {err}")
+            await context.abort(
+                grpc.StatusCode.UNAVAILABLE,
+                "E*Trade API request failed",
+            )
+        except Exception:
+            logger.exception("Unexpected error calling E*Trade API")
+            await context.abort(
+                grpc.StatusCode.INTERNAL,
+                "Unexpected error calling E*Trade API",
+            )
 
     async def ListOrders(
         self,

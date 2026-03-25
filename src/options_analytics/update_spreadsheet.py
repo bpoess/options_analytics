@@ -77,7 +77,8 @@ args = parser.parse_args()
 def configure_logging():
     root_logger = logging.getLogger()
     formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        "%(asctime)s %(name)s %(filename)s:%(lineno)d "
+        "%(funcName)s %(levelname)s - %(message)s"
     )
     # Configure a logger to console and one to a file if desired
     ch = logging.StreamHandler()

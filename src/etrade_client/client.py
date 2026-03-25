@@ -94,9 +94,11 @@ class ETradeClient:
             except Exception:
                 logger.warning(f"API returned {response.status_code} {response.text}")
                 pass
-        if response.status_code in (401, 403):
-            logger.info(f"API returned {response.status_code}, invalidating session")
-            self._invalidate()
+        if response.status_code == 401:
+            logger.info(
+                f"API returned {response.status_code}, invalidating oauth client"
+            )
+            self._oauth_client = None
             if _retry and self.is_authenticated():
                 logger.info("Re-authenticated, retrying request")
                 return self._get(url, headers=headers, _retry=False)
@@ -144,9 +146,15 @@ class ETradeClient:
         today_time = datetime.now(tz)
         return today_time.date() != mod_time.date()
 
-    def _renew_session(self) -> bool:
+    def _renew_session(self, token: dict) -> bool:
         """Renew the session token. Returns True on success, False on failure."""
-        assert self._oauth_client is not None
+        self._oauth_client = OAuth1Client(
+            client_key=self._consumer_key,
+            client_secret=self._consumer_secret,
+            resource_owner_key=token["oauth_token"],
+            resource_owner_secret=token["oauth_token_secret"],
+            signature_type="AUTH_HEADER",
+        )
 
         try:
             url = f"{self._base_url}/oauth/renew_access_token"
@@ -180,12 +188,13 @@ class ETradeClient:
         Attempts to restore from a cached token if needed. Returns True/False
         without raising.
         """
+        if self._token_changed_on_disk():
+            logger.info("Token file updated externally, reloading")
+            self._oauth_client = None
+            self._token_mtime = None
+
         if self._oauth_client is not None:
-            if self._token_changed_on_disk():
-                logger.info("Token file updated externally, reloading")
-                self._oauth_client = None
-                self._token_mtime = None
-            elif self._is_token_expired():
+            if self._is_token_expired():
                 logger.info("Active session token expired, invalidating")
                 self._invalidate()
                 return False
@@ -199,17 +208,10 @@ class ETradeClient:
         token = self._load_cached_token()
         if token:
             logger.info("Restoring session from cached token")
-            self._oauth_client = OAuth1Client(
-                client_key=self._consumer_key,
-                client_secret=self._consumer_secret,
-                resource_owner_key=token["oauth_token"],
-                resource_owner_secret=token["oauth_token_secret"],
-                signature_type="AUTH_HEADER",
-            )
-            if self._renew_session():
+            if self._renew_session(token):
                 logger.info("Session renewed successfully")
                 return True
-            # _renew_session already cleared _oauth_client on failure
+
             return False
 
         logger.info("No cached token available")

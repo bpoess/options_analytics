@@ -37,7 +37,7 @@ class Account:
 def configure_logging(args):
     root_logger = logging.getLogger()
     formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        "%(asctime)s %(name)s:%(funcName)s %(levelname)s - %(message)s"
     )
     # Configure a logger to console and one to a file if desired
     ch = logging.StreamHandler()

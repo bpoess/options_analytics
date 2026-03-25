@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
 from datetime import datetime
 from pathlib import Path
 from pprint import pformat
@@ -13,7 +13,7 @@ import httpx
 from oauthlib.oauth1 import Client as OAuth1Client
 from pytz import timezone
 
-from etrade_client.exceptions import AuthenticationRequired
+from etrade_client.exceptions import AuthenticationRequired, Internal, Timeout
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -39,7 +39,7 @@ class AsyncETradeClient:
         self._consumer_secret = consumer_secret
         self._token_path = Path(token_path)
         self._sandbox = sandbox
-        self._http = httpx.AsyncClient()
+        self._http = httpx.AsyncClient(timeout=5)
         self._pending_request_token: dict | None = None
         self._token_mtime: float | None = None
 
@@ -85,7 +85,17 @@ class AsyncETradeClient:
         signed_url, signed_headers, _ = self._oauth_client.sign(
             url, http_method="GET", headers=headers
         )
-        response = await self._http.get(signed_url, headers=signed_headers)
+
+        try:
+            response = await self._http.get(signed_url, headers=signed_headers)
+        except httpx.ReadTimeout as e:
+            logger.info(f"GET timeout {url} {e}")
+            raise Timeout() from e
+
+        except Exception as e:
+            logger.info(f"GET error {url} {e}")
+            raise Internal() from e
+
         if response.status_code != 200:
             try:
                 logger.warning(f"API returned {response.status_code} {response.json()}")
@@ -93,9 +103,11 @@ class AsyncETradeClient:
                 logger.warning(f"API returned {response.status_code} {response.text}")
                 pass
 
-        if response.status_code in (401, 403):
-            logger.info(f"API returned {response.status_code}, invalidating session")
-            self._invalidate()
+        if response.status_code == 401:
+            logger.info(
+                f"API returned {response.status_code}, invalidating oauth client"
+            )
+            self._oauth_client = None
             if _retry and await self.is_authenticated():
                 logger.info("Re-authenticated, retrying request")
                 return await self._get(url, headers=headers, _retry=False)
@@ -143,9 +155,15 @@ class AsyncETradeClient:
         today_time = datetime.now(tz)
         return today_time.date() != mod_time.date()
 
-    async def _renew_session(self) -> bool:
+    async def _renew_session(self, token: dict) -> bool:
         """Renew the session token. Returns True on success, False on failure."""
-        assert self._oauth_client is not None
+        self._oauth_client = OAuth1Client(
+            client_key=self._consumer_key,
+            client_secret=self._consumer_secret,
+            resource_owner_key=token["oauth_token"],
+            resource_owner_secret=token["oauth_token_secret"],
+            signature_type="AUTH_HEADER",
+        )
 
         try:
             url = f"{self._base_url}/oauth/renew_access_token"
@@ -179,12 +197,13 @@ class AsyncETradeClient:
         Attempts to restore from a cached token if needed. Returns True/False
         without raising.
         """
+        if self._token_changed_on_disk():
+            logger.info("Token file updated externally, reloading")
+            self._oauth_client = None
+            self._token_mtime = None
+
         if self._oauth_client is not None:
-            if self._token_changed_on_disk():
-                logger.info("Token file updated externally, reloading")
-                self._oauth_client = None
-                self._token_mtime = None
-            elif self._is_token_expired():
+            if self._is_token_expired():
                 logger.info("Active session token expired, invalidating")
                 self._invalidate()
                 return False
@@ -198,17 +217,10 @@ class AsyncETradeClient:
         token = await self._load_cached_token()
         if token:
             logger.info("Restoring session from cached token")
-            self._oauth_client = OAuth1Client(
-                client_key=self._consumer_key,
-                client_secret=self._consumer_secret,
-                resource_owner_key=token["oauth_token"],
-                resource_owner_secret=token["oauth_token_secret"],
-                signature_type="AUTH_HEADER",
-            )
-            if await self._renew_session():
+            if await self._renew_session(token):
                 logger.info("Session renewed successfully")
                 return True
-            # _renew_session already cleared _oauth_client on failure
+
             return False
 
         logger.info("No cached token available")
@@ -331,9 +343,37 @@ class AsyncETradeClient:
             response = await self._get(url, headers=headers, params=params)
             response.raise_for_status()
 
-            result.extend(response.json()["QuoteResponse"]["QuoteData"])
+            response_json = response.json()
+            if response_json.get("QuoteResponse") and response_json[
+                "QuoteResponse"
+            ].get("QuoteData"):
+                result.extend(response_json["QuoteResponse"]["QuoteData"])
 
         return result
+
+    async def stream_quotes_for(
+        self, symbols: list[str], detail_flag: str | None = None
+    ) -> AsyncIterator[dict[str, Any]]:
+        _MAX_SYMBOLS_PER_REQUEST = 25
+        symbol_chunks = [
+            symbols[i : i + _MAX_SYMBOLS_PER_REQUEST]
+            for i in range(0, len(symbols), _MAX_SYMBOLS_PER_REQUEST)
+        ]
+
+        for chunk in symbol_chunks:
+            symbol_query_str = ",".join(chunk)
+            url = f"{self._base_url}/v1/market/quote/{symbol_query_str}"
+            headers = {"Accept": "application/json"}
+            params = {"detailFlag": detail_flag}
+            response = await self._get(url, headers=headers, params=params)
+            response.raise_for_status()
+
+            response_json = response.json()
+            if response_json.get("QuoteResponse") and response_json[
+                "QuoteResponse"
+            ].get("QuoteData"):
+                for quote in response_json["QuoteResponse"]["QuoteData"]:
+                    yield quote
 
     async def fetch_order_list(
         self,

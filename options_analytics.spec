@@ -199,6 +199,40 @@ exe_my_little_etrade_server = EXE(
     entitlements_file=None,
 )
 
+analysis_data_kraken = Analysis(
+    ['src/options_analytics/data_kraken.py'],
+    pathex=[],
+    binaries=[],
+    datas=[],
+    hiddenimports=[],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    noarchive=False,
+    optimize=0,
+)
+pyz_data_kraken = PYZ(analysis_data_kraken.pure)
+
+exe_data_kraken = EXE(
+    pyz_data_kraken,
+    analysis_data_kraken.scripts,
+    [],
+    exclude_binaries=True,
+    name='options_analytics.data_kraken',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    console=True,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+
+
 coll = COLLECT(
     exe_get_transactions, analysis_get_transactions.binaries, analysis_get_transactions.datas,
     exe_update_spreadsheet, analysis_update_spreadsheet.binaries, analysis_update_spreadsheet.datas,
@@ -206,6 +240,7 @@ coll = COLLECT(
     exe_setup_config, analysis_setup_config.binaries, analysis_setup_config.datas,
     exe_update_open_positions, analysis_update_open_positions.binaries, analysis_update_open_positions.datas,
     exe_my_little_etrade_server, analysis_my_little_etrade_server.binaries, analysis_my_little_etrade_server.datas,
+    exe_data_kraken, analysis_data_kraken.binaries, analysis_data_kraken.datas,
     strip=False,
     upx=True,
     upx_exclude=[],
