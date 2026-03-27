@@ -63,6 +63,11 @@ def parse_args() -> argparse.Namespace:
         default="data_kraken.log",
         help="Log file path (always logs at DEBUG level)",
     )
+    parser.add_argument(
+        "--proxy-port",
+        default=38710,
+        help="Proxy server port to connect to",
+    )
     parser.add_argument("--datadir", default=None, help="Directory for data files.")
     parser.add_argument("--no-symbols", action="store_false", dest="record_symbols")
     parser.add_argument("--no-options", action="store_false", dest="record_options")
@@ -225,6 +230,7 @@ class MarketHours:
         delta = self.pre_market_open - now
         sleep_time = max(0, delta.total_seconds())
         if sleep_time > 0:
+            print(f"{delta} until pre-market open")
             await asyncio.sleep(sleep_time)
 
     async def wait_until_market_open(self):
@@ -233,7 +239,7 @@ class MarketHours:
         delta = self.open - now
         sleep_time = max(0, delta.total_seconds())
         if sleep_time > 0:
-            print(f"Waiting {delta} for market to open")
+            print(f"{delta} until market open")
             await asyncio.sleep(sleep_time)
 
 
@@ -269,29 +275,57 @@ async def options_gatherer(
     market: MarketHours,
 ):
     # Make sure we are expanding options on market day
-    print("options_gatherer: Waiting for pre-market to open")
-    await market.wait_until_pre_market_open()
+    print("options_gatherer: Waiting for market to open")
+    await market.wait_until_market_open()
 
     expiry_dates = expand_expiry_dates()
-    option_symbols = []
+    quotes = {}
     try:
-        async for quote in client.iter_quotes(symbols, detail_flag="ALL"):
-            symbol = quote.product.symbol
-            mid = decimal_round_nearest(
-                (Decimal(quote.all.high.value) + Decimal(quote.all.low.value) / 2), 5
-            )
-            _STRIKE_RANGE = 15
-            for strike in range(max(0, mid - _STRIKE_RANGE), mid + _STRIKE_RANGE, 5):
-                for date in expiry_dates:
-                    option_symbols.append(
-                        f"{symbol}:{date.year}:{date.month}:{date.day}:CALL:{strike}"
+        while True:
+            num_high_at_zero = 0
+            async for quote in client.iter_quotes(symbols, detail_flag="ALL"):
+                symbol = quote.product.symbol
+                quotes[symbol] = {
+                    "high": decimal_round_nearest(Decimal(quote.all.high.value), 5),
+                    "low": decimal_round_nearest(Decimal(quote.all.low.value), 5),
+                }
+                if quotes[symbol]["high"] == 0:
+                    logger.info(
+                        f"{symbol} "
+                        f"{quote.all.high.value} {quotes[symbol]['high']} "
+                        f"{quote.all.low.value} {quotes[symbol]['low']}"
                     )
-                    option_symbols.append(
-                        f"{symbol}:{date.year}:{date.month}:{date.day}:PUT:{strike}"
-                    )
+                    num_high_at_zero += 1
+
+            if num_high_at_zero <= 1:
+                break
+
+            await asyncio.sleep(300)
+
     except Exception as e:
         logger.info(f"Error while fetching quotes {e}")
         return
+
+    option_symbols = []
+    for symbol, values in quotes.items():
+        high = values["high"]
+        low = values["low"]
+        print(
+            f"{symbol} L {low:.0f} H {high:.0f}, "
+            f"PUT {max(0, low - 30)} - {low + 10} "
+            f"CALL {max(0, high - 10)} - {high + 30}"
+        )
+
+        for date in expiry_dates:
+            for strike in range(max(0, low - 30), low + 10, 5):
+                option_symbols.append(
+                    f"{symbol}:{date.year}:{date.month}:{date.day}:PUT:{strike}"
+                )
+
+            for strike in range(max(0, high - 10), high + 30, 5):
+                option_symbols.append(
+                    f"{symbol}:{date.year}:{date.month}:{date.day}:CALL:{strike}"
+                )
 
     print("options_gatherer: starting")
 
@@ -306,7 +340,7 @@ async def options_gatherer(
     buffer_size = 0
     try:
         now = MarketTime.now()
-        while now < market.after_hours_close:
+        while now <= market.close:
             start_time = time.monotonic()
 
             try:
@@ -455,7 +489,7 @@ async def gather(
     )
 
     try:
-        async with ProxyClient() as client:
+        async with ProxyClient(target=f"localhost:{args.proxy_port}") as client:
             tasks = []
             if args.record_symbols:
                 symbols_to_gather = expand_portfolio_symbols(portfolio_config)
