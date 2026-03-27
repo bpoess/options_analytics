@@ -19,9 +19,7 @@ class ConversionError(Exception):
         self.entity_type = entity_type
         self.raw_data = raw_data
         self.cause = cause
-        super().__init__(
-            f"Failed to convert {entity_type}: {cause}"
-        )
+        super().__init__(f"Failed to convert {entity_type}: {cause}")
 
 
 def _converts(entity_type: str):
@@ -111,8 +109,8 @@ def dict_to_account(d: dict) -> pb.Account:
     }
     if d.get("closedDate"):
         kwargs["closed_date"] = ms_to_timestamp(d["closedDate"])
-    if "accountDesk" in d:
-        kwargs["account_desk"] = d["accountDesk"]
+    if "accountDesc" in d:
+        kwargs["account_desc"] = d["accountDesc"]
     if "instNo" in d:
         kwargs["inst_no"] = d["instNo"]
     if "shareWorksSource" in d:
@@ -338,9 +336,7 @@ def dict_to_quote_all_detail(d: dict) -> pb.QuoteAllDetail:
         "yield": to_decimal(d["yield"]),
     }
     if d.get("dividendPayableDate"):
-        kwargs["dividend_payable_date"] = s_to_timestamp(
-            d["dividendPayableDate"]
-        )
+        kwargs["dividend_payable_date"] = s_to_timestamp(d["dividendPayableDate"])
     if d.get("exDividendDate"):
         kwargs["ex_dividend_date"] = s_to_timestamp(d["exDividendDate"])
     if d.get("expirationDate"):
@@ -352,13 +348,9 @@ def dict_to_quote_all_detail(d: dict) -> pb.QuoteAllDetail:
     if d.get("week52LowDate"):
         kwargs["week52_low_date"] = s_to_timestamp(d["week52LowDate"])
     if "optionPreviousAskPrice" in d:
-        kwargs["option_previous_ask_price"] = to_decimal(
-            d["optionPreviousAskPrice"]
-        )
+        kwargs["option_previous_ask_price"] = to_decimal(d["optionPreviousAskPrice"])
     if "optionPreviousBidPrice" in d:
-        kwargs["option_previous_bid_price"] = to_decimal(
-            d["optionPreviousBidPrice"]
-        )
+        kwargs["option_previous_bid_price"] = to_decimal(d["optionPreviousBidPrice"])
     if "optionUnderlierExchange" in d:
         kwargs["option_underlier_exchange"] = d["optionUnderlierExchange"]
     if "osiKey" in d:
@@ -396,9 +388,7 @@ def dict_to_instrument(d: dict) -> pb.Instrument:
         "symbol_description": d["symbolDescription"],
     }
     if "averageExecutionPrice" in d:
-        kwargs["average_execution_price"] = to_decimal(
-            d["averageExecutionPrice"]
-        )
+        kwargs["average_execution_price"] = to_decimal(d["averageExecutionPrice"])
     return pb.Instrument(**kwargs)
 
 

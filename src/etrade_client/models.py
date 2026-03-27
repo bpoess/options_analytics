@@ -37,7 +37,7 @@ class Account(BaseModel):
     id: str = Field(alias="accountId")
     id_key: str = Field(alias="accountIdKey")  # Unique account key
     mode: str = Field(alias="accountMode")
-    desk: str | None = Field(default=None, alias="accountDesk")
+    desk: str | None = Field(default=None, alias="accountDesc")
     name: str = Field(alias="accountName")
     type: str = Field(alias="accountType")
     institution_type: str
@@ -51,6 +51,7 @@ class Account(BaseModel):
         if v == 0:
             return None
         return v
+
     share_works_source: str | None = None
     fc_managed_mssb_closed_account: bool
 

@@ -131,7 +131,7 @@ message Account {
   string account_status = 6;
   optional google.protobuf.Timestamp closed_date = 7;
   string account_mode = 8;
-  optional string account_desk = 9;
+  optional string account_desc = 9;
   optional int32 inst_no = 10;
   bool share_works_account = 11;
   optional string share_works_source = 12;
