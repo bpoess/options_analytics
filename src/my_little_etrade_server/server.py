@@ -83,6 +83,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Run the server in the background",
     )
+    parser.add_argument(
+        "--proxy-port",
+        default=38710,
+        help="Port the server should bind to",
+    )
     return parser.parse_args()
 
 
@@ -145,7 +150,7 @@ class ProxyServicer(my_little_etrade_server_pb2_grpc.ProxyServiceServicer):
         request: my_little_etrade_server_pb2.GetAuthenticationStatusRequest,
         context: grpc.aio.ServicerContext,
     ) -> my_little_etrade_server_pb2.GetAuthenticationStatusResponse:
-        logger.info("GetAuthenticationStatus called")
+        logger.debug("GetAuthenticationStatus called")
         is_authenticated = await self._client.is_authenticated()
         return my_little_etrade_server_pb2.GetAuthenticationStatusResponse(
             is_authenticated=is_authenticated
@@ -466,9 +471,9 @@ def daemonize(pid_file: str = "my_little_etrade_server.pid") -> None:
         f.write(str(os.getpid()))
 
 
-async def serve() -> None:
+async def serve(args) -> None:
     config = Config.from_file("config.toml")
-    port = config.etrade.proxy.port
+    port = args.proxy_port
 
     client = AsyncETradeClient(config.etrade.key.api, config.etrade.key.secret)
     servicer = ProxyServicer(client)
@@ -506,7 +511,7 @@ def main() -> int:
 
     configure_logging(args)
     try:
-        asyncio.run(serve())
+        asyncio.run(serve(args))
     except KeyboardInterrupt:
         logger.info("Server stopped")
     return 0
